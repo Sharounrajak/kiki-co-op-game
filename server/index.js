@@ -15,11 +15,15 @@ app.get('/health', (req, res) => {
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ["https://kiki-co-op-game.vercel.app/", "http://localhost:5173"],
-    methods: ["GET", "POST"]
+    origin: [
+      "https://kiki-co-op-game.vercel.app/", // Replace with your actual Vercel domain
+      "http://localhost:5173",
+      "http://localhost:3000"
+    ],
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
-
 const rooms = {};
 
 // EXPANDED WORD BANK
