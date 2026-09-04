@@ -1,4 +1,3 @@
-// Local card data fallback to prevent relative client import failures during deployment
 const BACKEND_FALLBACK_CATEGORIES = {
   f1: {
     cards: [
@@ -85,6 +84,7 @@ export function registerGuessHandlers(io, socket) {
       });
 
       activeRoom.gameState = 'playing';
+      activeRoom.currentTurnIndex = 0;
       const startingPlayerId = activeRoom.players[0]?.id || '';
 
       io.to(roomCode).emit('match_started', {
@@ -102,33 +102,63 @@ export function registerGuessHandlers(io, socket) {
     }
   });
 
-  // 5. QUESTION HANDLING
-  socket.on('ask_question', ({ room, questionId }) => {
+  // 5. QUESTION HANDLING WITH TURN ROTATION
+  socket.on('ask_question', ({ room, questionText, answer }) => {
     const currentRoom = rooms[room];
     if (!currentRoom) return;
 
     currentRoom.currentTurnIndex = (currentRoom.currentTurnIndex + 1) % currentRoom.players.length;
     const nextPlayerId = currentRoom.players[currentRoom.currentTurnIndex]?.id;
 
-    io.to(room).emit('question_asked', {
+    io.to(room).emit('question_result', {
       askedBy: socket.id,
-      questionId,
+      questionText,
+      answer,
       nextTurnPlayerId: nextPlayerId
     });
   });
 
-  // 6. MAKE FINAL GUESS
-  socket.on('make_guess', ({ room, characterId }) => {
+  // 6. MAKE GUESS AND END GAME
+  socket.on('make_guess', ({ room, isCorrect }) => {
     const currentRoom = rooms[room];
     if (!currentRoom) return;
 
-    io.to(room).emit('guess_result', {
+    currentRoom.gameState = 'game_over';
+    
+    let winnerId = socket.id;
+    if (!isCorrect) {
+      const opponent = currentRoom.players.find(p => p.id !== socket.id);
+      if (opponent) winnerId = opponent.id;
+    }
+
+    const winnerObj = currentRoom.players.find(p => p.id === winnerId);
+
+    io.to(room).emit('guess_outcome', {
       guessedBy: socket.id,
-      characterId
+      winnerId,
+      winnerName: winnerObj?.name || 'Opponent'
     });
   });
 
-  // 7. CLEANUP DISCONNECTS
+  // 7. RESET LOBBY
+  socket.on('reset_guess_lobby', (roomCode) => {
+    const currentRoom = rooms[roomCode];
+    if (!currentRoom) return;
+
+    currentRoom.gameState = 'lobby';
+    currentRoom.playerPicks = {};
+
+    io.to(roomCode).emit('guess_room_state', {
+      roomState: {
+        gameState: currentRoom.gameState,
+        hostId: currentRoom.hostId,
+        categoryKey: currentRoom.categoryKey,
+        players: currentRoom.players
+      }
+    });
+  });
+
+  // 8. DISCONNECT HANDLER
   socket.on('disconnect', () => {
     Object.keys(rooms).forEach((roomCode) => {
       const currentRoom = rooms[roomCode];

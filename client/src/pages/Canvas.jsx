@@ -145,17 +145,20 @@ const Canvas = ({ socket }) => {
     ctx.closePath();
   };
 
-  const getCoordinates = (e) => {
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    return {
-      x: (clientX - rect.left) * (canvas.width / rect.width),
-      y: (clientY - rect.top) * (canvas.height / rect.height)
-    };
+  const getCoordinates = (e, canvas) => {
+  const rect = canvas.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  
+  // Calculate touch position relative to canvas size/scaling
+  return {
+    x: (clientX - rect.left) * (canvas.width / rect.width),
+    y: (clientY - rect.top) * (canvas.height / rect.height)
   };
+};
 
+// Use touch action in CSS to prevent screen scrolling while drawing:
+// touch-action: none; (Apply this to your canvas element inline or in CSS)
   const startDrawing = (e) => {
     if (!isMyTurn || gameState !== 'drawing') return;
     isDrawing.current = true;
