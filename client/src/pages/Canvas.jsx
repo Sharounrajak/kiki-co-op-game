@@ -35,9 +35,11 @@ const Canvas = ({ socket }) => {
   const [color, setColor] = useState("#2d3436");
   const [lineWidth, setLineWidth] = useState(4);
 
-  const isMyTurn = socket.id === drawerId;
+  const isMyTurn = socket?.id === drawerId;
 
   useEffect(() => {
+    if (!socket) return;
+
     const joinRoomPayload = { room, username, isCreator: isCreatorParam };
 
     const handleConnect = () => socket.emit("join_room", joinRoomPayload);
@@ -57,16 +59,6 @@ const Canvas = ({ socket }) => {
 
     socket.on("settings_updated", (newSettings) => setSettings(newSettings));
 
-    socket.on("game_started", ({ drawerId, gameState, wordOptions, currentRound, totalRounds, scores }) => {
-      setDrawerId(drawerId);
-      setGameState(gameState);
-      setWordOptions(wordOptions);
-      setCurrentRound(currentRound);
-      setTotalRounds(totalRounds);
-      if (scores) setScores(scores);
-      clearLocalCanvas();
-    });
-
     socket.on("turn_setup", ({ drawerId, gameState, wordOptions, currentRound, totalRounds }) => {
       setDrawerId(drawerId);
       setGameState(gameState);
@@ -84,12 +76,14 @@ const Canvas = ({ socket }) => {
       clearLocalCanvas();
     });
 
-    socket.on("timer_tick", (time) => setTimer(time));
-
-    socket.on("receive_draw", (data) => {
-      drawLine(data.x0, data.y0, data.x1, data.y1, data.color, data.size, data.tool);
-    });
-
+   socket.on("timer_tick", (data) => {
+  if (typeof data === 'object') {
+    setTimer(data.time);
+    if (data.maskedWord) setMaskedWord(data.maskedWord);
+  } else {
+    setTimer(data);
+  }
+});
     socket.on("receive_clear", () => clearLocalCanvas());
 
     socket.on("round_over", ({ reason, secretWord, scores, currentRound, totalRounds }) => {
@@ -111,7 +105,6 @@ const Canvas = ({ socket }) => {
       socket.off("connect", handleConnect);
       socket.off("room_data");
       socket.off("settings_updated");
-      socket.off("game_started");
       socket.off("turn_setup");
       socket.off("round_start");
       socket.off("timer_tick");
