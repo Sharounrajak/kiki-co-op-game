@@ -5,7 +5,12 @@ import Canvas from './pages/Canvas';
 import Guess from './pages/GuessGameBoard';
 import Monopoly from './pages/MonopolyGame';
 
-const socket = io.connect("http://localhost:3001");
+// Replace http://localhost:3001 with your Render URL
+const SOCKET_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://kiki-co-op-game.onrender.com' 
+  : 'http://localhost:3001';
+
+const socket = io.connect(SOCKET_URL);
 
 function App() {
   return (
