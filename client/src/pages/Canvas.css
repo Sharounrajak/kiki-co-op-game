@@ -1,0 +1,255 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #f4f1ea;
+}
+
+.sketchpad-app {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  font-family: 'Comic Sans MS', 'Comic Neue', sans-serif;
+  color: #2d3436;
+  overflow: hidden;
+}
+
+.sketch-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: #e8e3d9;
+  border-bottom: 3px dashed #b2bec3;
+  height: 56px;
+  min-height: 56px;
+  width: 100%;
+}
+
+.header-left, .header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.room-badge, .round-badge {
+  font-weight: 800;
+  font-size: 0.85rem;
+  background: #fff;
+  border: 2px solid #2d3436;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.round-badge {
+  background: #ffeaa7;
+}
+
+.invite-link-btn {
+  background: #6c5ce7;
+  color: white;
+  border: 2px solid #2d3436;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.mobile-chat-fab {
+  display: none;
+  background: #0984e3;
+  color: white;
+  border: 2px solid #2d3436;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.word-display {
+  font-size: 1.1rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: #0984e3;
+  text-align: center;
+}
+
+.timer-badge {
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+/* Flex Grid Workspace */
+.workspace-grid {
+  display: flex;
+  flex: 1;
+  padding: 10px;
+  gap: 10px;
+  width: 100%;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+}
+
+.doodle-sidebar {
+  width: 220px;
+  min-width: 220px;
+  height: 100%;
+  background: #fffef0;
+  border: 3px solid #2d3436;
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: 4px 4px 0px #2d3436;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.doodle-sidebar h4 {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+  color: #2d3436;
+}
+
+.score-card {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 8px;
+  font-size: 0.85rem;
+  border-bottom: 1px dashed #ccc;
+  border-radius: 4px;
+}
+
+.score-card.drawing-now {
+  background: #ffeaa7;
+  font-weight: bold;
+}
+
+.paper-sheet {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #fffef0;
+  background-image: 
+    linear-gradient(#e5e5e5 1px, transparent 1px),
+    linear-gradient(90deg, #e5e5e5 1px, transparent 1px);
+  background-size: 20px 20px;
+  border: 3px solid #2d3436;
+  border-radius: 10px;
+  box-shadow: 4px 4px 0px #2d3436;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.responsive-canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.paper-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 254, 240, 0.95);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px;
+  text-align: center;
+  z-index: 10;
+}
+
+.word-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.word-btn {
+  padding: 10px 16px;
+  background: #00b894;
+  color: white;
+  border: 2px solid #2d3436;
+  border-radius: 8px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.doodle-toolbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  background: #e8e3d9;
+  border-top: 3px dashed #b2bec3;
+  padding: 0 12px;
+  width: 100%;
+  z-index: 5;
+}
+
+.tool-btn {
+  padding: 6px 10px;
+  background: white;
+  border: 2px solid #2d3436;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.tool-btn.active {
+  background: #ffeaa7;
+  font-weight: bold;
+}
+
+.palette-group {
+  display: flex;
+  gap: 6px;
+}
+
+.color-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #2d3436;
+  cursor: pointer;
+}
+
+.clear-btn {
+  padding: 6px 12px;
+  background: #d63031;
+  color: white;
+  border: 2px solid #2d3436;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .doodle-sidebar {
+    display: none;
+  }
+
+  .mobile-chat-fab {
+    display: block;
+  }
+
+  .workspace-grid {
+    padding: 6px;
+    gap: 0;
+  }
+}

@@ -1,0 +1,154 @@
+.config-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 16px;
+}
+
+.config-card {
+  background: #fffef0;
+  border: 3px solid #2d3436;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 400px;
+  padding: 18px;
+  box-shadow: 6px 6px 0px #2d3436;
+  color: #2d3436;
+}
+
+.config-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  border-bottom: 2px dashed #b2bec3;
+  padding-bottom: 8px;
+}
+
+.config-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: #1e293b !important;
+}
+
+.badge {
+  background: #ffeaa7;
+  border: 2px solid #2d3436;
+  padding: 3px 8px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.invite-box {
+  margin-bottom: 14px;
+}
+
+.invite-box label, .section-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 800;
+  margin-bottom: 4px;
+  color: #636e72;
+}
+
+.invite-input-row {
+  display: flex;
+  gap: 6px;
+}
+
+.visible-link-input {
+  flex: 1;
+  padding: 8px;
+  border: 2px solid #2d3436;
+  border-radius: 6px;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  font-family: monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  outline: none;
+}
+
+.copy-btn {
+  padding: 0 10px;
+  background: #0984e3;
+  color: #ffffff;
+  border: 2px solid #2d3436;
+  border-radius: 6px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.copy-btn.copied { background: #00b894; }
+
+.settings-section {
+  background: rgba(0, 0, 0, 0.03);
+  border: 2px dashed #b2bec3;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 14px;
+}
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+}
+
+.setting-row:last-child { margin-bottom: 0; }
+
+.setting-row select {
+  padding: 4px 8px;
+  border: 2px solid #2d3436;
+  border-radius: 6px;
+  font-weight: 700;
+  background: #fff;
+  color: #2d3436;
+}
+
+.start-game-btn {
+  width: 100%;
+  padding: 10px;
+  background: #00b894;
+  color: white;
+  border: 2px solid #2d3436;
+  border-radius: 8px;
+  font-weight: 900;
+  font-size: 0.95rem;
+  cursor: pointer;
+  box-shadow: 3px 3px 0px #2d3436;
+}
+
+.guest-waiting-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #636e72;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #0984e3;
+  border-radius: 50%;
+  animation: pulse 1.2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.3; }
+  50% { opacity: 1; }
+  100% { opacity: 0.3; }
+}

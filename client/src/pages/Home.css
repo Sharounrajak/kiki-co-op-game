@@ -1,0 +1,315 @@
+@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700;800;900&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* 1. Force the root HTML and body to expand dynamically instead of locking at 100vh */
+html, body {
+  width: 100%;
+  min-height: 100%;
+  height: auto !important;
+  background-color: #dbe4ee;
+  color: #0f172a;
+  font-family: 'Chakra Petch', 'Comic Sans MS', cursive, sans-serif;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 2. Override fixed height on the main dashboard container */
+.arcade-dashboard {
+  width: 100%;
+  min-height: 100vh;
+  height: auto !important;
+  display: flex;
+  flex-direction: column;
+  background-color: #dbe4ee;
+  padding: 0.75rem;
+  overflow-y: visible !important;
+}
+
+.arcade-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background-color: #fffef0;
+  border: 3px solid #0f172a;
+  border-radius: 1.25rem;
+  box-shadow: 4px 4px 0px #0f172a;
+  flex-shrink: 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #2563eb;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.logo-icon {
+  font-size: 1.8rem;
+}
+
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #ffffff;
+  border: 2px solid #0f172a;
+  padding: 0.35rem 0.85rem;
+  border-radius: 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: #0f172a;
+  box-shadow: 2px 2px 0px #0f172a;
+}
+
+.online-dot {
+  width: 10px;
+  height: 10px;
+  background-color: #00c988;
+  border: 1.5px solid #0f172a;
+  border-radius: 50%;
+}
+
+.dashboard-content {
+  max-width: 1100px;
+  width: 100%;
+  margin: 1.5rem auto 0 auto;
+  flex: 1 0 auto;
+  padding-bottom: 3rem; /* Gives space at the bottom on mobile screens */
+}
+
+.hero-banner {
+  text-align: center;
+  margin-bottom: 2rem;
+  background: #fffef0;
+  border: 3px solid #0f172a;
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  box-shadow: 4px 4px 0px #0f172a;
+}
+
+.hero-banner h2 {
+  font-size: 2.25rem;
+  font-weight: 900;
+  color: #0f172a;
+  margin-bottom: 0.25rem;
+}
+
+.hero-banner p {
+  color: #475569;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.interactive-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 1.25rem;
+}
+
+.setup-card, .games-card {
+  background: #fffef0;
+  border: 3px solid #0f172a;
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  box-shadow: 4px 4px 0px #0f172a;
+  height: fit-content;
+}
+
+.setup-card h3, .games-card h3 {
+  margin-top: 0;
+  font-size: 0.9rem;
+  color: #475569;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 1.25rem;
+  font-weight: 900;
+}
+
+.setup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.input-group label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: #475569;
+  margin-bottom: 0.4rem;
+  text-transform: uppercase;
+}
+
+.input-group input {
+  width: 100%;
+  padding: 0.75rem;
+  background: #ffffff;
+  border: 2px solid #0f172a;
+  border-radius: 0.6rem;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 800;
+  outline: none;
+  box-shadow: 2px 2px 0px #0f172a;
+  font-family: inherit;
+}
+
+.code-input-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.code-input-row input {
+  text-transform: uppercase;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-align: center;
+}
+
+.btn-secondary {
+  background: #2563eb;
+  color: #ffffff;
+  border: 2px solid #0f172a;
+  padding: 0 1rem;
+  border-radius: 0.6rem;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 2px 2px 0px #0f172a;
+  transition: transform 0.1s ease;
+  font-family: inherit;
+}
+
+.btn-secondary:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px #0f172a;
+}
+
+.btn-primary-launch {
+  width: 100%;
+  padding: 0.875rem;
+  margin-top: 0.5rem;
+  background: #00c988;
+  color: #ffffff;
+  border: 2.5px solid #0f172a;
+  border-radius: 0.75rem;
+  font-weight: 900;
+  font-size: 1.1rem;
+  cursor: pointer;
+  text-transform: uppercase;
+  box-shadow: 4px 4px 0px #0f172a;
+  transition: all 0.1s ease;
+  font-family: inherit;
+}
+
+.btn-primary-launch:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px #0f172a;
+}
+
+/* 3. Game selection container fix */
+.game-cards-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  touch-action: pan-y; /* Explicitly enables touch scrolling on iOS/Android */
+}
+
+.game-selector-box {
+  position: relative;
+  background: #ffffff;
+  border: 2.5px solid #0f172a;
+  border-radius: 0.85rem;
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 3px 3px 0px #0f172a;
+}
+
+.game-selector-box:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0px #0f172a;
+}
+
+.game-selector-box.selected {
+  border-color: #2563eb !important;
+  background: #eff6ff !important;
+  box-shadow: 0 0 0px 3px #3b82f6, 4px 4px 0px #0f172a !important;
+}
+
+.box-badge {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: #e2e8f0;
+  color: #0f172a;
+  border: 1.5px solid #0f172a;
+  font-size: 0.65rem;
+  font-weight: 900;
+  padding: 2px 6px;
+  border-radius: 0.3rem;
+}
+
+.box-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.box-icon {
+  font-size: 1.5rem;
+}
+
+.game-selector-box h4 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.game-desc {
+  margin: 0 0 0.6rem 0;
+  font-size: 0.85rem;
+  color: #334155;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.how-to-play {
+  background: #fffef0;
+  border: 1.5px solid #0f172a;
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  color: #475569;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.how-to-play strong {
+  color: #2563eb;
+  font-weight: 900;
+}
+
+/* 4. Responsive breakpoint */
+@media (max-width: 850px) {
+  .interactive-grid {
+    grid-template-columns: 1fr;
+  }
+} 
