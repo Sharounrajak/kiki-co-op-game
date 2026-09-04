@@ -5,10 +5,38 @@ const Chat = ({ socket, room, username, isDrawer, gameState, isOpen, onClose }) 
   const [inputMsg, setInputMsg] = useState('');
   const chatBottomRef = useRef(null);
 
+  // Generates a happy "Ding!" sound out of thin air
+  const playDing = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(600, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.5);
+    } catch (e) { console.error("Audio error", e); }
+  };
+
   useEffect(() => {
     if (!socket) return;
 
     const handleReceiveMessage = (msgData) => {
+      // Check if this is a correct guess system message
+      const isWinningGuess = msgData.system && msgData.text.toLowerCase().includes('guessed');
+      
+      if (isWinningGuess) {
+        msgData.isSuccess = true;
+        playDing(); // Trigger the dopamine!
+      }
+      
       setMessages((prev) => [...prev, msgData]);
     };
 
@@ -36,7 +64,6 @@ const Chat = ({ socket, room, username, isDrawer, gameState, isOpen, onClose }) 
     setInputMsg('');
   };
 
-  // Only disable the chat if the user is actively drawing or selecting a word
   const isInputDisabled = isDrawer && (gameState === 'drawing' || gameState === 'selecting_word');
 
   return (
@@ -48,7 +75,7 @@ const Chat = ({ socket, room, username, isDrawer, gameState, isOpen, onClose }) 
           flex-direction: column;
           width: 320px;
           min-width: 300px;
-          flex-shrink: 0; /* Prevents the canvas from squishing the chat */
+          flex-shrink: 0; 
           height: 100%;
           background: #fffcf2;
           border: 4px solid #2d3436;
@@ -70,7 +97,7 @@ const Chat = ({ socket, room, username, isDrawer, gameState, isOpen, onClose }) 
         }
 
         .doodle-close-btn {
-          display: none; /* Hidden on desktop */
+          display: none; 
           background: #ff7675;
           border: 2px solid #2d3436;
           border-radius: 6px;
@@ -93,6 +120,27 @@ const Chat = ({ socket, room, username, isDrawer, gameState, isOpen, onClose }) 
           line-height: 1.4;
         }
 
+        /* THE GREEN TEXT DOPAMINE CSS */
+        .system-msg {
+          color: #636e72;
+          font-weight: bold;
+        }
+        .success-msg {
+          color: #00b894 !important;
+          font-weight: 900 !important;
+          background: #e8f8f5;
+          padding: 4px 8px;
+          border-radius: 6px;
+          text-align: center;
+          border: 2px dashed #00b894;
+          animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes popIn {
+          0% { transform: scale(0.8); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+
         .doodle-chat-input {
           display: flex;
           padding: 10px;
@@ -107,7 +155,7 @@ const Chat = ({ socket, room, username, isDrawer, gameState, isOpen, onClose }) 
           border-radius: 8px;
           font-family: inherit;
           outline: none;
-          min-width: 0; /* Fixes input overflow */
+          min-width: 0; 
         }
         
         .doodle-chat-input input:focus {
@@ -168,9 +216,12 @@ const Chat = ({ socket, room, username, isDrawer, gameState, isOpen, onClose }) 
 
         <div className="doodle-chat-messages">
           {messages.map((msg) => (
-            <div key={msg.id || Math.random()} className={`doodle-msg ${msg.system ? 'system-msg' : ''}`}>
+            <div 
+              key={msg.id || Math.random()} 
+              className={`doodle-msg ${msg.system ? 'system-msg' : ''} ${msg.isSuccess ? 'success-msg' : ''}`}
+            >
               {msg.system ? (
-                <strong style={{ color: '#636e72' }}>{msg.text}</strong>
+                <span>{msg.text}</span>
               ) : (
                 <span><strong>{msg.username}:</strong> {msg.text}</span>
               )}

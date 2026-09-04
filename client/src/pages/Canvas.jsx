@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
+import Confetti from 'react-confetti';
 import Configuration from '../components/Configuration';
 import Chat from '../components/Chat';
 import './Canvas.css';
@@ -36,6 +37,25 @@ const Canvas = ({ socket }) => {
   const [lineWidth, setLineWidth] = useState(4);
 
   const isMyTurn = socket?.id === drawerId;
+
+  // Synthesize an intense clock tick sound
+  const playTick = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(400, ctx.currentTime);
+      gainNode.gain.setValueAtTime(0.03, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.05);
+    } catch(e) { /* ignore */ }
+  };
 
   useEffect(() => {
     if (!socket) return;
@@ -77,11 +97,16 @@ const Canvas = ({ socket }) => {
     });
 
     socket.on("timer_tick", (data) => {
+      let timeLeft = data;
       if (typeof data === 'object') {
-        setTimer(data.time);
+        timeLeft = data.time;
         if (data.maskedWord) setMaskedWord(data.maskedWord);
-      } else {
-        setTimer(data);
+      }
+      setTimer(timeLeft);
+
+      // Play tick sound when 10 seconds or less remain
+      if (timeLeft > 0 && timeLeft <= 10) {
+        playTick();
       }
     });
 
@@ -145,7 +170,6 @@ const Canvas = ({ socket }) => {
 
   const getCoordinates = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
-    
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
 
@@ -219,6 +243,19 @@ const Canvas = ({ socket }) => {
 
   return (
     <div className="sketchpad-app">
+      {/* Victory Confetti overlaying the whole screen! */}
+      {gameState === 'game_over' && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 9999 }}>
+          <Confetti 
+            width={window.innerWidth} 
+            height={window.innerHeight} 
+            recycle={true}
+            numberOfPieces={400}
+            gravity={0.15}
+          />
+        </div>
+      )}
+
       <style>{`
         .sketchpad-app {
           display: flex;
@@ -230,6 +267,21 @@ const Canvas = ({ socket }) => {
 
         .sketch-header {
           flex-shrink: 0; 
+        }
+
+        /* Notice how the timer shakes when time is running out! */
+        .timer-badge.danger {
+          color: #d63031;
+          animation: shake 0.5s infinite;
+        }
+
+        @keyframes shake {
+          0% { transform: translate(1px, 1px) rotate(0deg); }
+          20% { transform: translate(-1px, -2px) rotate(-1deg); }
+          40% { transform: translate(-3px, 0px) rotate(1deg); }
+          60% { transform: translate(3px, 2px) rotate(0deg); }
+          80% { transform: translate(1px, -1px) rotate(1deg); }
+          100% { transform: translate(-1px, 2px) rotate(-1deg); }
         }
 
         .workspace-grid {
@@ -254,7 +306,6 @@ const Canvas = ({ socket }) => {
           height: 100%;
         }
 
-        /* GLOBALLY lock the wrapper to 8:5 so the grid background perfectly matches the canvas */
         .canvas-wrapper {
           width: 100%;
           max-width: 800px;
@@ -361,7 +412,9 @@ const Canvas = ({ socket }) => {
 
         <div className="header-right">
           <span className="round-badge">R {currentRound}/{totalRounds}</span>
-          <span className="timer-badge">⏳ {timer}s</span>
+          <span className={`timer-badge ${timer <= 10 && gameState === 'drawing' ? 'danger' : ''}`}>
+            ⏳ {timer}s
+          </span>
           <button className="mobile-chat-fab" onClick={() => setIsMobileChatOpen(true)}>💬 Chat</button>
         </div>
       </header>
