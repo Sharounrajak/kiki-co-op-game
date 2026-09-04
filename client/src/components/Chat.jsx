@@ -1,84 +1,77 @@
 import React, { useState, useEffect, useRef } from 'react';
-import './Chat.css';
 
 const Chat = ({ socket, room, username, isDrawer, gameState, isOpen, onClose }) => {
   const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const chatEndRef = useRef(null);
+  const [inputMsg, setInputMsg] = useState('');
+  const chatBottomRef = useRef(null);
 
   useEffect(() => {
-    const handleMessage = (msg) => {
-      setMessages((prev) => [...prev, msg]);
+    if (!socket) return;
+
+    const handleReceiveMessage = (msgData) => {
+      setMessages((prev) => [...prev, msgData]);
     };
 
-    const handleCorrectGuess = ({ winnerName, word }) => {
-      setMessages((prev) => [
-        ...prev,
-        { id: Date.now(), sender: 'System', message: `🎉 ${winnerName} guessed "${word}"!`, isSystem: true }
-      ]);
-    };
-
-    socket.on("receive_message", handleMessage);
-    socket.on("correct_guess", handleCorrectGuess);
+    socket.on('receive_message', handleReceiveMessage);
 
     return () => {
-      socket.off("receive_message", handleMessage);
-      socket.off("correct_guess", handleCorrectGuess);
+      socket.off('receive_message', handleReceiveMessage);
     };
   }, [socket]);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = (e) => {
+  const handleSendMessage = (e) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!inputMsg.trim()) return;
 
-    socket.emit("send_message", {
+    socket.emit('send_message', {
       room,
-      message: input,
-      sender: username
+      message: inputMsg.trim(),
+      username
     });
-    setInput('');
+
+    setInputMsg('');
   };
 
-  const isChatDisabled = isDrawer && gameState === 'drawing';
-
   return (
-    <div className={`chat-container ${isOpen ? 'mobile-open' : ''}`}>
+    <aside className={`chat-box-wrapper ${isOpen ? 'mobile-open' : ''}`}>
       <div className="chat-header">
-        <span>💬 Room Chat</span>
-        <button className="close-chat-btn" onClick={onClose}>✕</button>
+        <span>GUESS CHAT</span>
+        {onClose && <button className="chat-close-btn" onClick={onClose}>✕</button>}
       </div>
 
       <div className="chat-messages">
-        {messages.length === 0 ? (
-          <div className="empty-chat-note">Type a message or guess the word!</div>
-        ) : (
-          messages.map((m) => (
-            <div key={m.id || Math.random()} className={`chat-bubble ${m.isSystem ? 'system-msg' : ''}`}>
-              <strong>{m.sender}: </strong>
-              <span>{m.message}</span>
-            </div>
-          ))
-        )}
-        <div ref={chatEndRef} />
+        {messages.map((msg) => (
+          <div
+            key={msg.id || Math.random()}
+            className={`chat-msg ${msg.system ? 'system-msg' : ''}`}
+          >
+            {msg.system ? (
+              <strong>{msg.text}</strong>
+            ) : (
+              <span><strong>{msg.username}:</strong> {msg.text}</span>
+            )}
+          </div>
+        ))}
+        <div ref={chatBottomRef} />
       </div>
 
-      <form onSubmit={handleSend} className="chat-input-box">
+      <form className="chat-input-form" onSubmit={handleSendMessage}>
         <input
           type="text"
-          placeholder={isChatDisabled ? "You are drawing!" : "Type your guess..."}
-          value={input}
-          disabled={isChatDisabled}
-          onChange={(e) => setInput(e.target.value)}
+          value={inputMsg}
+          onChange={(e) => setInputMsg(e.target.value)}
+          placeholder={isDrawer ? "You are drawing..." : "Type your guess here..."}
+          disabled={isDrawer || gameState !== 'drawing'}
         />
-        <button type="submit" disabled={isChatDisabled || !input.trim()}>
+        <button type="submit" disabled={isDrawer || gameState !== 'drawing' || !inputMsg.trim()}>
           Send
         </button>
       </form>
-    </div>
+    </aside>
   );
 };
 

@@ -65,6 +65,20 @@ const revealHintLetter = (word, currentMasked) => {
   return maskArray.join(' ');
 };
 
+// Helper: Return clean room payload to avoid socket circular memory freezes
+const getSanitizedRoomState = (room) => {
+  return {
+    host: room.host,
+    players: room.players,
+    settings: room.settings,
+    gameState: room.gameState,
+    currentDrawer: room.currentDrawer,
+    currentRound: room.currentRound,
+    totalRounds: room.settings.totalRounds,
+    scores: room.scores
+  };
+};
+
 const startNextTurn = (roomCode) => {
   const room = rooms[roomCode];
   if (!room) return;
@@ -240,39 +254,41 @@ io.on('connection', (socket) => {
       rooms[room].playerQueue.push(socket.id);
     }
 
-    io.in(room).emit("room_data", { roomState: rooms[room], hostId: rooms[room].host });
+    io.in(room).emit("room_data", { roomState: getSanitizedRoomState(rooms[room]), hostId: rooms[room].host });
   });
 
-  // CHAT & GUESS SYSTEM FIX
+  // CHAT & GUESS SYSTEM (FIXED FREEZE)
   socket.on("send_message", ({ room, message, username }) => {
     const roomState = rooms[room];
+    if (!roomState || !message) return;
 
-    if (roomState && roomState.gameState === 'drawing') {
+    const trimmedMsg = message.trim();
+    if (trimmedMsg.length === 0) return;
+
+    if (roomState.gameState === 'drawing') {
       const isDrawer = socket.id === roomState.currentDrawer;
       const isCorrectGuess = !isDrawer && 
-        message.trim().toLowerCase() === roomState.secretWord.toLowerCase() &&
+        trimmedMsg.toLowerCase() === roomState.secretWord.toLowerCase() &&
         !roomState.guessedPlayers.includes(socket.id);
 
       if (isCorrectGuess) {
         roomState.guessedPlayers.push(socket.id);
         
-        // Dynamic Scoring based on remaining time
         const points = Math.max(50, roomState.timer * 10);
         roomState.scores[socket.id] = (roomState.scores[socket.id] || 0) + points;
         
-        // Award drawer partial points
         if (roomState.currentDrawer) {
           roomState.scores[roomState.currentDrawer] = (roomState.scores[roomState.currentDrawer] || 0) + 25;
         }
 
         io.in(room).emit("receive_message", {
+          id: Date.now() + Math.random(),
           system: true,
           text: `🎉 ${username || 'A player'} guessed the word!`
         });
 
-        io.in(room).emit("room_data", { roomState, hostId: roomState.host });
+        io.in(room).emit("room_data", { roomState: getSanitizedRoomState(roomState), hostId: roomState.host });
 
-        // Check if all non-drawers guessed
         const totalGuessers = roomState.playerQueue.length - 1;
         if (roomState.guessedPlayers.length >= Math.max(1, totalGuessers)) {
           endTurn(room, "Everyone guessed the word!");
@@ -281,10 +297,11 @@ io.on('connection', (socket) => {
       }
     }
 
-    // Regular Chat Broadcast
+    // Broadcast standard message
     io.in(room).emit("receive_message", {
+      id: Date.now() + Math.random(),
       username: username || 'Player',
-      text: message,
+      text: trimmedMsg,
       system: false
     });
   });
@@ -326,7 +343,7 @@ io.on('connection', (socket) => {
     if (!room) return;
     if (room.interval) clearInterval(room.interval);
     room.gameState = 'lobby';
-    io.in(roomCode).emit("room_data", { roomState: room, hostId: room.host });
+    io.in(roomCode).emit("room_data", { roomState: getSanitizedRoomState(room), hostId: room.host });
   });
 
   socket.on("disconnect", () => {
@@ -349,7 +366,7 @@ io.on('connection', (socket) => {
           if (room.host === socket.id) {
             room.host = Object.keys(room.players)[0];
           }
-          io.in(roomCode).emit("room_data", { roomState: room, hostId: room.host });
+          io.in(roomCode).emit("room_data", { roomState: getSanitizedRoomState(room), hostId: room.host });
         }
       }
     });
