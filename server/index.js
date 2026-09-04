@@ -42,9 +42,11 @@ io.on('connection', (socket) => {
       const mRoom = monopolyRooms[roomCode];
       if (!mRoom.slots['0']) {
         mRoom.slots['0'] = socket.id;
+        mRoom.names['0'] = username || 'Player 1';
         socket.emit("monopoly_slot_assigned", { slotId: '0' });
       } else if (!mRoom.slots['1'] && mRoom.slots['0'] !== socket.id) {
         mRoom.slots['1'] = socket.id;
+        mRoom.names['1'] = username || 'Player 2';
         socket.emit("monopoly_slot_assigned", { slotId: '1' });
       } else if (mRoom.slots['0'] === socket.id) {
         socket.emit("monopoly_slot_assigned", { slotId: '0' });
@@ -60,7 +62,7 @@ io.on('connection', (socket) => {
 
   // 3. SKRIBBL / CANVAS HANDLERS
   socket.on("join_room", (data) => {
-    const { room, username, isCreator } = typeof data === 'object' ? data : { room: data, username: 'Player', isCreator: false };
+    const { room, username } = typeof data === 'object' ? data : { room: data, username: 'Player' };
     socket.join(room);
 
     if (!rooms[room]) {

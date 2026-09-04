@@ -146,29 +146,26 @@ const Canvas = ({ socket }) => {
   };
 
   const getCoordinates = (e, canvas) => {
-  const rect = canvas.getBoundingClientRect();
-  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-  
-  // Calculate touch position relative to canvas size/scaling
-  return {
-    x: (clientX - rect.left) * (canvas.width / rect.width),
-    y: (clientY - rect.top) * (canvas.height / rect.height)
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    return {
+      x: (clientX - rect.left) * (canvas.width / rect.width),
+      y: (clientY - rect.top) * (canvas.height / rect.height)
+    };
   };
-};
 
-// Use touch action in CSS to prevent screen scrolling while drawing:
-// touch-action: none; (Apply this to your canvas element inline or in CSS)
   const startDrawing = (e) => {
     if (!isMyTurn || gameState !== 'drawing') return;
     isDrawing.current = true;
-    const { x, y } = getCoordinates(e);
+    const { x, y } = getCoordinates(e, canvasRef.current);
     lastPos.current = { x, y };
   };
 
   const draw = (e) => {
     if (!isDrawing.current || !isMyTurn || gameState !== 'drawing') return;
-    const { x, y } = getCoordinates(e);
+    const { x, y } = getCoordinates(e, canvasRef.current);
     const { x: x0, y: y0 } = lastPos.current;
 
     drawLine(x0, y0, x, y, color, lineWidth, tool);
@@ -261,6 +258,7 @@ const Canvas = ({ socket }) => {
             width={800}
             height={500}
             className="responsive-canvas"
+            style={{ touchAction: 'none' }}
             onMouseDown={startDrawing}
             onMouseMove={draw}
             onMouseUp={stopDrawing}

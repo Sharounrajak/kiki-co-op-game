@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 
 const BOARD_SPACES = [
+  // Bottom Row (0 - 10)
   { id: 0, name: "GO", type: "go", price: 0 },
   { id: 1, name: "San Diego Drive", type: "property", price: 60, rent: 2, houseCost: 50, color: "#955251" },
   { id: 2, name: "Community Chest", type: "chest", price: 0 },
@@ -13,6 +14,8 @@ const BOARD_SPACES = [
   { id: 8, name: "Phoenix Drive", type: "property", price: 130, rent: 10, houseCost: 50, color: "#87CEEB" },
   { id: 9, name: "Boston Drive", type: "property", price: 150, rent: 12, houseCost: 50, color: "#87CEEB" },
   { id: 10, name: "Jail / Visiting", type: "jail", price: 0 },
+
+  // Left Column (11 - 19)
   { id: 11, name: "Olivia Gardens", type: "property", price: 140, rent: 14, houseCost: 100, color: "#DA70D6" },
   { id: 12, name: "Car Company", type: "utility", price: 150, rent: 15 },
   { id: 13, name: "California Drive", type: "property", price: 160, rent: 14, houseCost: 100, color: "#DA70D6" },
@@ -23,6 +26,8 @@ const BOARD_SPACES = [
   { id: 18, name: "New York Drive", type: "property", price: 200, rent: 16, houseCost: 100, color: "#FF8C00" },
   { id: 19, name: "Atlanta Drive", type: "property", price: 200, rent: 16, houseCost: 100, color: "#FF8C00" },
   { id: 20, name: "Free Parking", type: "parking", price: 0 },
+
+  // Top Row (21 - 29)
   { id: 21, name: "Almond Drive", type: "property", price: 200, rent: 18, houseCost: 150, color: "#DC143C" },
   { id: 22, name: "Chance", type: "chance", price: 0 },
   { id: 23, name: "Clement Drive", type: "property", price: 200, rent: 18, houseCost: 150, color: "#DC143C" },
@@ -33,6 +38,8 @@ const BOARD_SPACES = [
   { id: 28, name: "Railroad", type: "railroad", price: 130, rent: 25 },
   { id: 29, name: "Oakville", type: "property", price: 230, rent: 20, houseCost: 150, color: "#FFD700" },
   { id: 30, name: "Go To Jail", type: "gotojail", price: 0 },
+
+  // Right Column (31 - 39)
   { id: 31, name: "Atlantic Drive", type: "property", price: 300, rent: 26, houseCost: 200, color: "#228B22" },
   { id: 32, name: "Clement Drive", type: "property", price: 300, rent: 26, houseCost: 200, color: "#228B22" },
   { id: 33, name: "Community Chest", type: "chest", price: 0 },
@@ -48,40 +55,56 @@ const DICE_FACES = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 
 export default function MonopolyGame({ socket }) {
   const { room } = useParams();
-  const activeRoomCode = room || 'MONO1';
+  const [searchParams] = useSearchParams();
+  const username = searchParams.get('name') || 'Player';
+  
+  const [localPlayerId, setLocalPlayerId] = useState(searchParams.get('player') || '0');
   const canvasRef = useRef(null);
 
-  const [localSlotId, setLocalSlotId] = useState(null);
+  // Layout & Animation States
   const [isPortrait, setIsPortrait] = useState(false);
   const [isRolling, setIsRolling] = useState(false);
   const [diceVisual, setDiceVisual] = useState([1, 1]);
   const [isAnimatingPiece, setIsAnimatingPiece] = useState(false);
   const [moneyPopups, setMoneyPopups] = useState([]);
   const [activeCardModal, setActiveCardModal] = useState(null);
+
+  // Auction State
   const [auctionState, setAuctionState] = useState(null);
 
+  // Game Core State
   const [gameState, setGameState] = useState({
     turn: '0',
     players: {
-      '0': { id: '0', socketId: '', name: 'Player 1', money: 1500, position: 0, token: '🎩', color: '#ef4444' },
-      '1': { id: '1', socketId: '', name: 'Player 2', money: 1500, position: 0, token: '🚗', color: '#3b82f6' }
+      '0': { id: '0', name: 'Player 1', money: 1500, position: 0, token: '🎩', color: '#ef4444' },
+      '1': { id: '1', name: 'Player 2', money: 1500, position: 0, token: '🚗', color: '#3b82f6' }
     },
     properties: {},
     lastRoll: [1, 1],
     hasRolled: false,
     pendingPurchase: null,
-    logs: ['🏦 Banker: Welcome! Copy invite link to invite Player 2.']
+    decisionTimer: 0,
+    logs: ['🏦 Banker: Welcome to Monopoly! Roll the dice to begin your journey.']
   });
 
   const [animatedPositions, setAnimatedPositions] = useState({ '0': 0, '1': 0 });
 
+  // Orientation handling
+  useEffect(() => {
+    const handleResize = () => setIsPortrait(window.innerHeight > window.innerWidth && window.innerWidth < 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Socket Connection & Synchronization
   useEffect(() => {
     if (!socket) return;
 
-    socket.emit("join_monopoly_room", { room: activeRoomCode, username: "Player" });
+    socket.emit("join_monopoly_room", { room: room || 'MONO1', username });
 
     socket.on("monopoly_slot_assigned", ({ slotId }) => {
-      setLocalSlotId(slotId);
+      setLocalPlayerId(slotId);
     });
 
     socket.on("update_monopoly_state", (newState) => {
@@ -92,15 +115,9 @@ export default function MonopolyGame({ socket }) {
       socket.off("monopoly_slot_assigned");
       socket.off("update_monopoly_state");
     };
-  }, [socket, activeRoomCode]);
+  }, [socket, room, username]);
 
-  useEffect(() => {
-    const handleResize = () => setIsPortrait(window.innerHeight > window.innerWidth && window.innerWidth < 768);
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
+  // Sync positions when not animating
   useEffect(() => {
     if (!isAnimatingPiece && gameState?.players) {
       setAnimatedPositions({
@@ -112,15 +129,9 @@ export default function MonopolyGame({ socket }) {
 
   const emitStateChange = (updatedState) => {
     setGameState(updatedState);
-    if (socket && activeRoomCode) {
-      socket.emit("monopoly_state_change", { room: activeRoomCode, state: updatedState });
+    if (socket && room) {
+      socket.emit("monopoly_state_change", { room, state: updatedState });
     }
-  };
-
-  const copyInviteLink = () => {
-    const inviteUrl = `${window.location.origin}/monopoly/${activeRoomCode}`;
-    navigator.clipboard.writeText(inviteUrl);
-    alert("Invite link copied to clipboard!");
   };
 
   const triggerMoneyPopup = (playerId, amount) => {
@@ -128,7 +139,9 @@ export default function MonopolyGame({ socket }) {
     const text = amount >= 0 ? `+$${amount}` : `-$${Math.abs(amount)}`;
     const color = amount >= 0 ? '#4ade80' : '#f87171';
     setMoneyPopups(prev => [...prev, { id, playerId, text, color }]);
-    setTimeout(() => setMoneyPopups(prev => prev.filter(p => p.id !== id)), 1800);
+    setTimeout(() => {
+      setMoneyPopups(prev => prev.filter(p => p.id !== id));
+    }, 1800);
   };
 
   const animateTokenMovement = (playerId, startPos, totalSteps, callback) => {
@@ -148,7 +161,7 @@ export default function MonopolyGame({ socket }) {
   };
 
   const rollDice = () => {
-    if (gameState.hasRolled || isRolling || isAnimatingPiece || gameState.turn !== localSlotId) return;
+    if (gameState.hasRolled || isRolling || isAnimatingPiece || gameState.turn !== localPlayerId) return;
     setIsRolling(true);
 
     const spinInterval = setInterval(() => {
@@ -214,7 +227,7 @@ export default function MonopolyGame({ socket }) {
   };
 
   const buyProperty = () => {
-    if (!gameState.pendingPurchase || gameState.turn !== localSlotId) return;
+    if (!gameState.pendingPurchase) return;
     const state = JSON.parse(JSON.stringify(gameState));
     const currId = state.turn;
     const p = state.players[currId];
@@ -231,7 +244,7 @@ export default function MonopolyGame({ socket }) {
   };
 
   const passToAuction = () => {
-    if (!gameState.pendingPurchase || gameState.turn !== localSlotId) return;
+    if (!gameState.pendingPurchase) return;
     const prop = gameState.pendingPurchase;
     setAuctionState({
       property: prop,
@@ -240,13 +253,70 @@ export default function MonopolyGame({ socket }) {
       activeBidders: ['0', '1']
     });
     const state = JSON.parse(JSON.stringify(gameState));
-    state.logs.unshift(`🔨 Banker: ${prop.name} is UP FOR AUCTION starting at $${Math.floor(prop.price * 0.5)}!`);
+    state.logs.unshift(`🔨 Banker: ${prop.name} is now UP FOR AUCTION starting at $${Math.floor(prop.price * 0.5)}!`);
     state.pendingPurchase = null;
     emitStateChange(state);
   };
 
+  const placeBid = (playerId, increment) => {
+    if (!auctionState) return;
+    const newBid = auctionState.currentBid + increment;
+    if (gameState.players[playerId].money < newBid) return;
+
+    setAuctionState(prev => ({
+      ...prev,
+      currentBid: newBid,
+      highestBidder: playerId
+    }));
+
+    const state = JSON.parse(JSON.stringify(gameState));
+    state.logs.unshift(`🔨 Banker: ${gameState.players[playerId].name} placed a bid of $${newBid}`);
+    emitStateChange(state);
+  };
+
+  const passBid = (playerId) => {
+    if (!auctionState) return;
+    const remaining = auctionState.activeBidders.filter(id => id !== playerId);
+
+    if (remaining.length <= 1 && auctionState.highestBidder) {
+      const winnerId = auctionState.highestBidder;
+      const finalPrice = auctionState.currentBid;
+      const prop = auctionState.property;
+
+      const state = JSON.parse(JSON.stringify(gameState));
+      state.players[winnerId].money -= finalPrice;
+      triggerMoneyPopup(winnerId, -finalPrice);
+      state.properties[prop.id] = { owner: winnerId, houses: 0, isMortgaged: false };
+      state.logs.unshift(`🎉 Banker: AUCTION CLOSED! ${state.players[winnerId].name} won ${prop.name} for $${finalPrice}!`);
+      emitStateChange(state);
+      setAuctionState(null);
+    } else if (remaining.length === 0 || !auctionState.highestBidder) {
+      const state = JSON.parse(JSON.stringify(gameState));
+      state.logs.unshift(`❌ Banker: Auction ended with no buyers for ${auctionState.property.name}.`);
+      emitStateChange(state);
+      setAuctionState(null);
+    } else {
+      setAuctionState(prev => ({ ...prev, activeBidders: remaining }));
+    }
+  };
+
+  const mortgageProperty = (spaceId) => {
+    const state = JSON.parse(JSON.stringify(gameState));
+    const prop = state.properties[spaceId];
+    const space = BOARD_SPACES.find(s => s.id === parseInt(spaceId));
+
+    if (prop && prop.owner === localPlayerId && !prop.isMortgaged) {
+      const payout = Math.floor(space.price * 0.5);
+      prop.isMortgaged = true;
+      state.players[localPlayerId].money += payout;
+      triggerMoneyPopup(localPlayerId, payout);
+      state.logs.unshift(`🏦 Banker: ${state.players[localPlayerId].name} mortgaged ${space.name} for $${payout}.`);
+      emitStateChange(state);
+    }
+  };
+
   const endTurn = () => {
-    if (!gameState.hasRolled || isAnimatingPiece || gameState.turn !== localSlotId) return;
+    if (!gameState.hasRolled || isAnimatingPiece || gameState.turn !== localPlayerId) return;
     const state = JSON.parse(JSON.stringify(gameState));
     state.turn = state.turn === '0' ? '1' : '0';
     state.hasRolled = false;
@@ -255,6 +325,7 @@ export default function MonopolyGame({ socket }) {
     emitStateChange(state);
   };
 
+  // Canvas Renderer
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -280,6 +351,7 @@ export default function MonopolyGame({ socket }) {
 
     BOARD_SPACES.forEach((space) => {
       const rect = getTileRect(space.id);
+
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
       ctx.strokeStyle = '#0f172a';
@@ -294,14 +366,76 @@ export default function MonopolyGame({ socket }) {
         else if (space.id > 30 && space.id < 40) ctx.fillRect(rect.x, rect.y, 18, rect.h);
       }
 
+      ctx.save();
+      ctx.fillStyle = '#0f172a';
+      ctx.textAlign = 'center';
+      ctx.font = '600 7px sans-serif';
+
+      if (space.type === 'go') {
+        ctx.font = 'bold 11px sans-serif';
+        ctx.fillText("COLLECT $200", rect.x + rect.w / 2, rect.y + rect.h / 2 - 4);
+        ctx.fillText("GO ➡️", rect.x + rect.w / 2, rect.y + rect.h / 2 + 12);
+      } else if (space.type === 'jail') {
+        ctx.font = 'bold 9px sans-serif';
+        ctx.fillText("IN JAIL", rect.x + rect.w / 2, rect.y + rect.h / 2 - 4);
+        ctx.fillText("VISITING", rect.x + rect.w / 2, rect.y + rect.h / 2 + 8);
+      } else if (space.type === 'parking') {
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillText("FREE PARKING", rect.x + rect.w / 2, rect.y + rect.h / 2);
+      } else if (space.type === 'gotojail') {
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillText("GO TO JAIL 🚨", rect.x + rect.w / 2, rect.y + rect.h / 2);
+      } else {
+        const words = space.name.split(' ');
+        if (space.id > 0 && space.id < 10) {
+          ctx.fillText(words[0] || "", rect.x + rect.w / 2, rect.y + 28);
+          if (words[1]) ctx.fillText(words[1], rect.x + rect.w / 2, rect.y + 36);
+          if (space.price > 0) ctx.fillText(`M${space.price}`, rect.x + rect.w / 2, rect.y + rect.h - 4);
+        } else if (space.id > 10 && space.id < 20) {
+          ctx.translate(rect.x + rect.w / 2, rect.y + rect.h / 2);
+          ctx.rotate(Math.PI / 2);
+          ctx.fillText(words[0] || "", 0, -4);
+          if (words[1]) ctx.fillText(words[1], 0, 4);
+        } else if (space.id > 20 && space.id < 30) {
+          ctx.fillText(words[0] || "", rect.x + rect.w / 2, rect.y + 12);
+          if (words[1]) ctx.fillText(words[1], rect.x + rect.w / 2, rect.y + 20);
+        } else if (space.id > 30 && space.id < 40) {
+          ctx.translate(rect.x + rect.w / 2, rect.y + rect.h / 2);
+          ctx.rotate(-Math.PI / 2);
+          ctx.fillText(words[0] || "", 0, -4);
+          if (words[1]) ctx.fillText(words[1], 0, 4);
+        }
+      }
+      ctx.restore();
+
       const prop = gameState.properties[space.id];
       if (prop) {
-        ctx.strokeStyle = gameState.players[prop.owner].color;
+        ctx.strokeStyle = gameState.players[prop.owner]?.color || '#000';
         ctx.lineWidth = 4;
         ctx.strokeRect(rect.x + 2, rect.y + 2, rect.w - 4, rect.h - 4);
+        if (prop.isMortgaged) {
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+          ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+        }
       }
     });
 
+    // Central Banner
+    ctx.save();
+    ctx.translate(size / 2, size / 2);
+    ctx.rotate(-Math.PI / 4);
+    ctx.fillStyle = '#b91c1c';
+    ctx.fillRect(-120, -28, 240, 56);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(-120, -28, 240, 56);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 26px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText("MONOPOLY", 0, 9);
+    ctx.restore();
+
+    // Player Tokens
     Object.entries(animatedPositions).forEach(([pId, pos]) => {
       const rect = getTileRect(pos);
       const player = gameState.players[pId];
@@ -317,78 +451,246 @@ export default function MonopolyGame({ socket }) {
 
   }, [gameState, animatedPositions]);
 
-  const currPlayer = gameState.players[gameState.turn];
+  const currPlayer = gameState.players[gameState.turn] || {};
+  const myData = gameState.players[localPlayerId] || {};
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: '20px', padding: '16px', backgroundColor: '#090d16', minHeight: '100vh', color: '#f8fafc' }}>
+    <div style={{
+      display: 'flex', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: '20px',
+      padding: '16px', backgroundColor: '#090d16', minHeight: '100vh', color: '#f8fafc',
+      fontFamily: 'system-ui, -apple-system, sans-serif'
+    }}>
+
       {isPortrait && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(9, 13, 22, 0.96)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <h2>Rotate Screen</h2>
-          <p>Turn your phone horizontally to landscape mode to play!</p>
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(9, 13, 22, 0.96)',
+          zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '50px', marginBottom: '15px' }}>📱🔄</div>
+          <h2 style={{ color: '#38bdf8', margin: '0 0 10px 0' }}>Rotate Screen</h2>
+          <p style={{ color: '#94a3b8', fontSize: '14px', maxWidth: '280px' }}>
+            Turn your phone horizontally to landscape mode to play Monopoly on a wider view!
+          </p>
         </div>
       )}
 
-      <div style={{ position: 'relative', background: '#1e293b', padding: '12px', borderRadius: '16px' }}>
-        <canvas ref={canvasRef} width={620} height={620} style={{ maxWidth: '100%', height: 'auto' }} />
+      {/* BOARD CONTAINER */}
+      <div style={{
+        position: 'relative', background: '#1e293b', padding: '12px', borderRadius: '16px',
+        border: '1px solid #334155', boxShadow: '0 12px 30px rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center'
+      }}>
+        <canvas ref={canvasRef} width={620} height={620} style={{ maxWidth: '100%', height: 'auto', touchAction: 'none' }} />
+
         {moneyPopups.map(pop => (
-          <div key={pop.id} style={{ position: 'absolute', top: pop.playerId === '0' ? '80%' : '20%', left: '50%', color: pop.color, fontSize: '26px', fontWeight: '900' }}>
+          <div key={pop.id} style={{
+            position: 'absolute', top: pop.playerId === '0' ? '80%' : '20%', left: '50%',
+            transform: 'translate(-50%, -50%)', color: pop.color, fontSize: '26px', fontWeight: '900',
+            textShadow: '0 2px 10px rgba(0,0,0,0.8)', animation: 'floatUp 1.8s forwards'
+          }}>
             {pop.text}
           </div>
         ))}
+
+        {gameState?.lastRoll?.length === 2 && (
+          <div style={{ position: 'absolute', bottom: '18px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(15, 23, 42, 0.85)', padding: '6px 12px', borderRadius: '8px' }}>
+            <span style={{ fontSize: '18px' }}>🎲</span>
+            <span style={{ fontWeight: 'bold', fontSize: '14px', color: '#38bdf8' }}>
+              Rolled: {DICE_FACES[gameState.lastRoll[0] - 1]} {DICE_FACES[gameState.lastRoll[1] - 1]} ({gameState.lastRoll[0] + gameState.lastRoll[1]})
+            </span>
+          </div>
+        )}
+
+        {activeCardModal && (
+          <div style={{
+            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            background: '#0284c7', padding: '20px', borderRadius: '12px', width: '260px', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.8)'
+          }}>
+            <h3 style={{ margin: '0 0 8px 0', color: '#fff' }}>{activeCardModal.type}</h3>
+            <p style={{ background: '#fff', color: '#0f172a', padding: '12px', borderRadius: '8px', fontWeight: 'bold', fontSize: '13px' }}>
+              {activeCardModal.text}
+            </p>
+            <button onClick={() => setActiveCardModal(null)} style={{ padding: '8px 18px', background: '#0f172a', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+              Acknowledge
+            </button>
+          </div>
+        )}
+
+        {auctionState && (
+          <div style={{
+            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            background: '#1e1b4b', padding: '20px', borderRadius: '16px', border: '2px solid #6366f1',
+            width: '300px', textAlign: 'center', boxShadow: '0 10px 30px rgba(0,0,0,0.9)'
+          }}>
+            <h3 style={{ margin: '0 0 4px 0', color: '#818cf8' }}>🔨 PROPERTY AUCTION</h3>
+            <div style={{ fontSize: '14px', color: '#f8fafc', fontWeight: 'bold' }}>{auctionState.property.name}</div>
+            <div style={{ fontSize: '24px', color: '#4ade80', margin: '10px 0', fontWeight: 'bold' }}>
+              Current Bid: ${auctionState.currentBid}
+            </div>
+            <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '14px' }}>
+              Highest Bidder: {auctionState.highestBidder ? gameState.players[auctionState.highestBidder]?.name : 'None'}
+            </div>
+
+            {auctionState.activeBidders.includes(localPlayerId) ? (
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                <button onClick={() => placeBid(localPlayerId, 10)} style={{ padding: '8px 12px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  +$10
+                </button>
+                <button onClick={() => placeBid(localPlayerId, 50)} style={{ padding: '8px 12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  +$50
+                </button>
+                <button onClick={() => passBid(localPlayerId)} style={{ padding: '8px 12px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  Pass
+                </button>
+              </div>
+            ) : (
+              <div style={{ fontSize: '12px', color: '#f87171' }}>You passed this auction.</div>
+            )}
+          </div>
+        )}
       </div>
 
+      {/* DASHBOARD */}
       <div style={{ flex: '1 1 340px', maxWidth: '460px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <button onClick={copyInviteLink} style={{ padding: '10px', background: '#38bdf8', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
-          🔗 Copy Invite Link
-        </button>
-
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
           {Object.values(gameState.players).map(p => {
-            const isMe = p.id === localSlotId;
+            const isMe = p.id === localPlayerId;
             return (
-              <div key={p.id} style={{ background: '#131c2e', padding: '12px', borderRadius: '10px', borderLeft: `5px solid ${p.color}` }}>
-                <div>{p.token} {p.name} {isMe ? "(You)" : ""}</div>
-                <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#4ade80' }}>${p.money}</div>
+              <div key={p.id} style={{
+                background: '#131c2e', padding: '12px', borderRadius: '10px',
+                borderLeft: `5px solid ${p.color}`, boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+              }}>
+                <div style={{ fontSize: '13px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>{p.token}</span> {p.name} {isMe && <span style={{ color: '#38bdf8', fontSize: '10px' }}>(You)</span>}
+                </div>
+                <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#4ade80' }}>
+                  ${p.money}
+                </div>
+                <small style={{ color: '#cbd5e1', fontSize: '11px' }}>Tile: {BOARD_SPACES[p.position]?.name}</small>
               </div>
             );
           })}
         </div>
 
-        <div style={{ background: '#131c2e', padding: '14px', borderRadius: '10px' }}>
-          <div>Current Turn: <strong style={{ color: currPlayer.color }}>{currPlayer.name}</strong></div>
+        <div style={{ background: '#131c2e', padding: '14px', borderRadius: '10px', border: '1px solid #1e293b' }}>
+          <div style={{ fontSize: '14px', marginBottom: '10px', color: '#94a3b8' }}>
+            Current Turn: <strong style={{ color: currPlayer.color }}>{currPlayer.name}</strong>
+          </div>
 
-          {gameState.turn === localSlotId ? (
-            <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-              <button onClick={rollDice} disabled={gameState.hasRolled || isRolling || isAnimatingPiece} style={{ flex: 1, padding: '12px', background: gameState.hasRolled ? '#334155' : '#16a34a', color: '#fff', borderRadius: '8px', fontWeight: 'bold' }}>
+          {gameState.turn === localPlayerId ? (
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={rollDice}
+                disabled={gameState.hasRolled || isRolling || isAnimatingPiece}
+                style={{
+                  flex: 1, padding: '12px', background: gameState.hasRolled ? '#334155' : '#16a34a',
+                  color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer'
+                }}
+              >
                 {isRolling ? `${DICE_FACES[diceVisual[0] - 1]} ${DICE_FACES[diceVisual[1] - 1]}` : '🎲 Roll Dice'}
               </button>
-              <button onClick={endTurn} disabled={!gameState.hasRolled || isAnimatingPiece} style={{ flex: 1, padding: '12px', background: !gameState.hasRolled ? '#334155' : '#2563eb', color: '#fff', borderRadius: '8px', fontWeight: 'bold' }}>
+              <button
+                onClick={endTurn}
+                disabled={!gameState.hasRolled || isAnimatingPiece}
+                style={{
+                  flex: 1, padding: '12px', background: (!gameState.hasRolled || isAnimatingPiece) ? '#334155' : '#2563eb',
+                  color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer'
+                }}
+              >
                 End Turn
               </button>
             </div>
           ) : (
             <div style={{ fontSize: '12px', color: '#64748b', textAlign: 'center', padding: '10px' }}>
-              Waiting for {currPlayer.name} to roll...
+              Waiting for {currPlayer.name} to complete their move...
             </div>
           )}
 
-          {gameState.pendingPurchase && gameState.turn === localSlotId && (
-            <div style={{ marginTop: '12px', background: '#1e293b', padding: '12px', borderRadius: '8px' }}>
-              <div>Landed on <strong>{gameState.pendingPurchase.name}</strong> (${gameState.pendingPurchase.price})</div>
-              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                <button onClick={buyProperty} style={{ flex: 1, padding: '8px', background: '#eab308', borderRadius: '4px', fontWeight: 'bold' }}>Buy</button>
-                <button onClick={passToAuction} style={{ flex: 1, padding: '8px', background: '#6366f1', color: '#fff', borderRadius: '4px', fontWeight: 'bold' }}>Auction</button>
+          {gameState.pendingPurchase && gameState.turn === localPlayerId && (
+            <div style={{ marginTop: '12px', background: '#1e293b', padding: '12px', borderRadius: '8px', border: '1px solid #3b82f6' }}>
+              <div style={{ fontSize: '13px', color: '#cbd5e1', marginBottom: '8px' }}>
+                Landed on <strong>{gameState.pendingPurchase.name}</strong> (${gameState.pendingPurchase.price})
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={buyProperty}
+                  disabled={myData.money < gameState.pendingPurchase.price}
+                  style={{ flex: 1, padding: '8px', background: '#eab308', color: '#000', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  Buy Property
+                </button>
+                <button
+                  onClick={passToAuction}
+                  style={{ flex: 1, padding: '8px', background: '#6366f1', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  Send to Auction
+                </button>
               </div>
             </div>
           )}
         </div>
 
-        <div style={{ background: '#0d1527', padding: '14px', borderRadius: '10px', flex: 1, maxHeight: '200px', overflowY: 'auto' }}>
-          <div style={{ fontWeight: 'bold', color: '#38bdf8', marginBottom: '8px' }}>🏦 Banker Feed</div>
-          {gameState.logs.map((log, idx) => (
-            <div key={idx} style={{ fontSize: '12px', color: idx === 0 ? '#f8fafc' : '#64748b' }}>{log}</div>
-          ))}
+        <div style={{ background: '#131c2e', padding: '12px', borderRadius: '10px', border: '1px solid #1e293b' }}>
+          <div style={{ fontSize: '12px', color: '#38bdf8', fontWeight: 'bold', marginBottom: '8px' }}>
+            💼 MY PROPERTIES & MORTGAGE
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '100px', overflowY: 'auto' }}>
+            {Object.entries(gameState?.properties || {})
+              .filter(([_, prop]) => prop.owner === localPlayerId)
+              .map(([spaceId, prop]) => {
+                const space = BOARD_SPACES.find(s => s.id === parseInt(spaceId));
+                return (
+                  <div key={spaceId} style={{
+                    background: '#1e293b', padding: '6px 8px', borderRadius: '6px', fontSize: '11px',
+                    display: 'flex', alignItems: 'center', gap: '6px', border: `1px solid ${space.color || '#334155'}`
+                  }}>
+                    <span>{space.name}</span>
+                    {!prop.isMortgaged ? (
+                      <button
+                        onClick={() => mortgageProperty(spaceId)}
+                        style={{ padding: '2px 6px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '9px', cursor: 'pointer' }}
+                      >
+                        Mortgage (+${Math.floor(space.price * 0.5)})
+                      </button>
+                    ) : (
+                      <span style={{ color: '#f87171', fontSize: '9px' }}>(Mortgaged)</span>
+                    )}
+                  </div>
+                );
+              })}
+            {Object.values(gameState.properties).filter(p => p.owner === localPlayerId).length === 0 && (
+              <div style={{ fontSize: '11px', color: '#64748b' }}>No properties owned yet.</div>
+            )}
+          </div>
         </div>
+
+        <div style={{
+          background: '#0d1527', padding: '14px', borderRadius: '10px', border: '1px solid #1d2d4a',
+          flex: 1, minHeight: '180px', maxHeight: '220px', display: 'flex', flexDirection: 'column'
+        }}>
+          <div style={{
+            fontSize: '12px', fontWeight: 'bold', color: '#38bdf8', letterSpacing: '1px',
+            textTransform: 'uppercase', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px'
+          }}>
+            <span>🏦</span> Banker Live Commentary
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', paddingRight: '6px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {gameState.logs.map((log, idx) => (
+                <div key={idx} style={{
+                  fontSize: '12px',
+                  color: idx === 0 ? '#f8fafc' : '#64748b',
+                  background: idx === 0 ? '#1e293b' : 'transparent',
+                  padding: idx === 0 ? '6px 10px' : '0 4px',
+                  borderRadius: '6px',
+                  borderLeft: idx === 0 ? '3px solid #38bdf8' : 'none'
+                }}>
+                  {log}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );
