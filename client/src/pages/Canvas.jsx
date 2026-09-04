@@ -37,9 +37,6 @@ const Canvas = ({ socket }) => {
 
   const isMyTurn = socket?.id === drawerId;
 
-  // Notice: The manual touch scroll lock useEffect was removed! 
-  // It is now perfectly handled by CSS `touch-action: none` on the new wrapper.
-
   useEffect(() => {
     if (!socket) return;
 
@@ -146,11 +143,9 @@ const Canvas = ({ socket }) => {
     ctx.closePath();
   };
 
-  // Upgraded to seamlessly handle Pointer Events
   const getCoordinates = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
     
-    // Pointer events have clientX/Y built-in! No more messy touch arrays.
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
 
@@ -166,7 +161,6 @@ const Canvas = ({ socket }) => {
     const { x, y } = getCoordinates(e, canvasRef.current);
     lastPos.current = { x, y };
     
-    // This locks the pointer to the canvas so drawing doesn't break if your thumb slips slightly off-screen
     try { e.target.setPointerCapture(e.pointerId); } catch (err) {}
   };
 
@@ -226,14 +220,28 @@ const Canvas = ({ socket }) => {
   return (
     <div className="sketchpad-app">
       <style>{`
-        /* Perfectly maps the DOM layout to the 800x500 Canvas */
+        .sketchpad-app {
+          display: flex;
+          flex-direction: column;
+          height: 100vh; 
+          height: 100dvh; 
+          overflow: hidden; 
+        }
+
+        .sketch-header {
+          flex-shrink: 0; 
+        }
+
         .workspace-grid {
+          flex: 1; 
           display: flex;
           gap: 15px;
           padding: 15px;
-          height: calc(100vh - 100px);
+          min-height: 0; 
           max-width: 1400px;
           margin: 0 auto;
+          width: 100%;
+          box-sizing: border-box;
         }
 
         .paper-sheet {
@@ -243,15 +251,18 @@ const Canvas = ({ socket }) => {
           flex-direction: column;
           align-items: center;
           position: relative;
+          height: 100%;
         }
 
+        /* GLOBALLY lock the wrapper to 8:5 so the grid background perfectly matches the canvas */
         .canvas-wrapper {
           width: 100%;
           max-width: 800px;
-          aspect-ratio: 8 / 5; /* This fixes the offset bug perfectly */
+          aspect-ratio: 8 / 5; 
+          margin: 0 auto;
           position: relative;
           background: transparent;
-          touch-action: none; /* Stops the browser from scrolling while drawing */
+          touch-action: none;
         }
 
         .responsive-canvas {
@@ -261,22 +272,61 @@ const Canvas = ({ socket }) => {
           touch-action: none; 
           cursor: crosshair;
         }
+        
+        .doodle-toolbar {
+          flex-shrink: 0; 
+          margin-bottom: env(safe-area-inset-bottom, 5px); 
+          overflow-x: auto; 
+          white-space: nowrap;
+          z-index: 10;
+        }
 
         @media (max-width: 768px) {
           .workspace-grid {
             flex-direction: column;
-            height: auto;
-            padding: 10px;
+            padding: 5px;
+            gap: 5px;
           }
           .doodle-sidebar {
             width: 100%;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
+            flex-shrink: 0;
           }
           .paper-sheet {
             width: 100%;
+            min-height: 0;
           }
           .mobile-chat-fab {
             display: block; 
+          }
+          
+          .doodle-toolbar {
+            padding: 8px 5px !important;
+            gap: 8px !important;
+            justify-content: center;
+            display: flex;
+            align-items: center;
+          }
+          .doodle-toolbar .tool-btn {
+            width: 32px !important;
+            height: 32px !important;
+            font-size: 16px !important;
+            padding: 0 !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .doodle-toolbar .color-swatch {
+            width: 24px !important;
+            height: 24px !important;
+            margin: 0 2px !important;
+          }
+          .doodle-toolbar input[type="range"] {
+            width: 70px !important;
+          }
+          .doodle-toolbar .clear-btn {
+            padding: 6px 12px !important;
+            font-size: 13px !important;
           }
         }
         
@@ -330,7 +380,6 @@ const Canvas = ({ socket }) => {
         </aside>
 
         <main className="paper-sheet">
-          {/* Replaced naked canvas with strict-ratio wrapper */}
           <div className="canvas-wrapper">
             <canvas
               ref={canvasRef}
@@ -344,7 +393,6 @@ const Canvas = ({ socket }) => {
               onPointerOut={stopDrawing}
             />
 
-            {/* Placed overlays inside the wrapper so they perfectly cover the canvas area */}
             {gameState === 'lobby' && (
               <Configuration
                 room={room}
