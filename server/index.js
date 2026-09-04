@@ -65,18 +65,11 @@ const revealHintLetter = (word, currentMasked) => {
   return maskArray.join(' ');
 };
 
-// Helper: Return clean room payload to avoid socket circular memory freezes
+// LOGIC FIX: Clone the room and only delete the interval to prevent stripping game data
 const getSanitizedRoomState = (room) => {
-  return {
-    host: room.host,
-    players: room.players,
-    settings: room.settings,
-    gameState: room.gameState,
-    currentDrawer: room.currentDrawer,
-    currentRound: room.currentRound,
-    totalRounds: room.settings.totalRounds,
-    scores: room.scores
-  };
+  const sanitized = { ...room };
+  delete sanitized.interval; 
+  return sanitized;
 };
 
 const startNextTurn = (roomCode) => {
@@ -257,7 +250,7 @@ io.on('connection', (socket) => {
     io.in(room).emit("room_data", { roomState: getSanitizedRoomState(rooms[room]), hostId: rooms[room].host });
   });
 
-  // CHAT & GUESS SYSTEM (FIXED FREEZE)
+  // CHAT & GUESS SYSTEM LOGIC FIX
   socket.on("send_message", ({ room, message, username }) => {
     const roomState = rooms[room];
     if (!roomState || !message) return;
@@ -297,7 +290,6 @@ io.on('connection', (socket) => {
       }
     }
 
-    // Broadcast standard message
     io.in(room).emit("receive_message", {
       id: Date.now() + Math.random(),
       username: username || 'Player',
@@ -374,4 +366,4 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => console.log(`Unified Game Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Unified Game Server running on port ${PORT}`));  

@@ -37,6 +37,26 @@ const Canvas = ({ socket }) => {
 
   const isMyTurn = socket?.id === drawerId;
 
+  // LOGIC FIX: Forcefully stop mobile devices from scrolling while interacting with the canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const preventScroll = (e) => {
+      if (isMyTurn && gameState === 'drawing') {
+        e.preventDefault();
+      }
+    };
+
+    canvas.addEventListener('touchstart', preventScroll, { passive: false });
+    canvas.addEventListener('touchmove', preventScroll, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('touchstart', preventScroll);
+      canvas.removeEventListener('touchmove', preventScroll);
+    };
+  }, [isMyTurn, gameState]);
+
   useEffect(() => {
     if (!socket) return;
 
@@ -143,7 +163,6 @@ const Canvas = ({ socket }) => {
     ctx.closePath();
   };
 
-  // TOUCH ACCURACY & MOBILE DRAW FIX
   const getCoordinates = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
     
@@ -170,7 +189,6 @@ const Canvas = ({ socket }) => {
 
   const startDrawing = (e) => {
     if (!isMyTurn || gameState !== 'drawing') return;
-    if (e.cancelable) e.preventDefault();
     isDrawing.current = true;
     const { x, y } = getCoordinates(e, canvasRef.current);
     lastPos.current = { x, y };
@@ -178,7 +196,6 @@ const Canvas = ({ socket }) => {
 
   const draw = (e) => {
     if (!isDrawing.current || !isMyTurn || gameState !== 'drawing') return;
-    if (e.cancelable) e.preventDefault();
 
     const { x, y } = getCoordinates(e, canvasRef.current);
     const { x: x0, y: y0 } = lastPos.current;
@@ -188,8 +205,7 @@ const Canvas = ({ socket }) => {
     lastPos.current = { x, y };
   };
 
-  const stopDrawing = (e) => {
-    if (e && e.cancelable) e.preventDefault();
+  const stopDrawing = () => {
     isDrawing.current = false;
   };
 
