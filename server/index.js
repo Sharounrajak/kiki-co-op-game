@@ -14,7 +14,10 @@ app.get('/health', (req, res) => {
 
 const server = createServer(app);
 const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] },
+  cors: {
+    origin: ["https://kiki-co-op-game.vercel.app/", "http://localhost:5173"],
+    methods: ["GET", "POST"]
+  }
 });
 
 const rooms = {};
