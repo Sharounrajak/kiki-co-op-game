@@ -37,24 +37,8 @@ const Canvas = ({ socket }) => {
 
   const isMyTurn = socket?.id === drawerId;
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const preventScroll = (e) => {
-      if (isMyTurn && gameState === 'drawing') {
-        e.preventDefault();
-      }
-    };
-
-    canvas.addEventListener('touchstart', preventScroll, { passive: false });
-    canvas.addEventListener('touchmove', preventScroll, { passive: false });
-
-    return () => {
-      canvas.removeEventListener('touchstart', preventScroll);
-      canvas.removeEventListener('touchmove', preventScroll);
-    };
-  }, [isMyTurn, gameState]);
+  // Notice: The manual touch scroll lock useEffect was removed! 
+  // It is now perfectly handled by CSS `touch-action: none` on the new wrapper.
 
   useEffect(() => {
     if (!socket) return;
@@ -162,29 +146,17 @@ const Canvas = ({ socket }) => {
     ctx.closePath();
   };
 
+  // Upgraded to seamlessly handle Pointer Events
   const getCoordinates = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
-    const nativeEvent = e.nativeEvent || e;
     
-    let clientX, clientY;
-    
-    if (nativeEvent.touches && nativeEvent.touches.length > 0) {
-      clientX = nativeEvent.touches[0].clientX;
-      clientY = nativeEvent.touches[0].clientY;
-    } else if (nativeEvent.changedTouches && nativeEvent.changedTouches.length > 0) {
-      clientX = nativeEvent.changedTouches[0].clientX;
-      clientY = nativeEvent.changedTouches[0].clientY;
-    } else {
-      clientX = nativeEvent.clientX || e.clientX;
-      clientY = nativeEvent.clientY || e.clientY;
-    }
-
+    // Pointer events have clientX/Y built-in! No more messy touch arrays.
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
 
     return {
-      x: (clientX - rect.left) * scaleX,
-      y: (clientY - rect.top) * scaleY
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
     };
   };
 
@@ -193,6 +165,9 @@ const Canvas = ({ socket }) => {
     isDrawing.current = true;
     const { x, y } = getCoordinates(e, canvasRef.current);
     lastPos.current = { x, y };
+    
+    // This locks the pointer to the canvas so drawing doesn't break if your thumb slips slightly off-screen
+    try { e.target.setPointerCapture(e.pointerId); } catch (err) {}
   };
 
   const draw = (e) => {
@@ -206,8 +181,9 @@ const Canvas = ({ socket }) => {
     lastPos.current = { x, y };
   };
 
-  const stopDrawing = () => {
+  const stopDrawing = (e) => {
     isDrawing.current = false;
+    try { e.target.releasePointerCapture(e.pointerId); } catch (err) {}
   };
 
   const clearLocalCanvas = () => {
@@ -249,31 +225,48 @@ const Canvas = ({ socket }) => {
 
   return (
     <div className="sketchpad-app">
-      {/* UI Fix Injection for perfect desktop grid */}
       <style>{`
-        /* Shared Workspace Layout */
+        /* Perfectly maps the DOM layout to the 800x500 Canvas */
         .workspace-grid {
           display: flex;
           gap: 15px;
           padding: 15px;
-          height: calc(100vh - 100px); /* Adjusts height to avoid scrolling */
+          height: calc(100vh - 100px);
           max-width: 1400px;
           margin: 0 auto;
         }
 
         .paper-sheet {
-          flex: 1; /* Pushes sidebars to the edge, takes center */
-          min-width: 0; /* Prevents center from blowing out */
+          flex: 1;
+          min-width: 0; 
           display: flex;
           flex-direction: column;
           align-items: center;
           position: relative;
         }
 
+        .canvas-wrapper {
+          width: 100%;
+          max-width: 800px;
+          aspect-ratio: 8 / 5; /* This fixes the offset bug perfectly */
+          position: relative;
+          background: transparent;
+          touch-action: none; /* Stops the browser from scrolling while drawing */
+        }
+
+        .responsive-canvas {
+          width: 100%;
+          height: 100%;
+          display: block;
+          touch-action: none; 
+          cursor: crosshair;
+        }
+
         @media (max-width: 768px) {
           .workspace-grid {
             flex-direction: column;
             height: auto;
+            padding: 10px;
           }
           .doodle-sidebar {
             width: 100%;
@@ -293,7 +286,7 @@ const Canvas = ({ socket }) => {
           }
           .doodle-sidebar {
             width: 250px;
-            flex-shrink: 0; /* Forces sidebar to keep its exact width */
+            flex-shrink: 0; 
           }
         }
       `}</style>
@@ -337,80 +330,80 @@ const Canvas = ({ socket }) => {
         </aside>
 
         <main className="paper-sheet">
-          <canvas
-            ref={canvasRef}
-            width={800}
-            height={500}
-            className="responsive-canvas"
-            style={{ touchAction: 'none' }}
-            onMouseDown={startDrawing}
-            onMouseMove={draw}
-            onMouseUp={stopDrawing}
-            onMouseLeave={stopDrawing}
-            onTouchStart={startDrawing}
-            onTouchMove={draw}
-            onTouchEnd={stopDrawing}
-            onTouchCancel={stopDrawing}
-          />
-
-          {gameState === 'lobby' && (
-            <Configuration
-              room={room}
-              settings={settings}
-              onUpdateSettings={handleUpdateSettings}
-              onStartGame={handleStartGame}
-              isHost={isHost}
+          {/* Replaced naked canvas with strict-ratio wrapper */}
+          <div className="canvas-wrapper">
+            <canvas
+              ref={canvasRef}
+              width={800}
+              height={500}
+              className="responsive-canvas"
+              onPointerDown={startDrawing}
+              onPointerMove={draw}
+              onPointerUp={stopDrawing}
+              onPointerCancel={stopDrawing}
+              onPointerOut={stopDrawing}
             />
-          )}
 
-          {gameState === 'selecting_word' && isMyTurn && (
-            <div className="paper-overlay">
-              <h3>Choose a word to draw:</h3>
-              <div className="word-buttons">
-                {wordOptions.map((word) => (
-                  <button key={word} className="word-btn" onClick={() => handleSelectWord(word)}>
-                    {word}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+            {/* Placed overlays inside the wrapper so they perfectly cover the canvas area */}
+            {gameState === 'lobby' && (
+              <Configuration
+                room={room}
+                settings={settings}
+                onUpdateSettings={handleUpdateSettings}
+                onStartGame={handleStartGame}
+                isHost={isHost}
+              />
+            )}
 
-          {gameState === 'selecting_word' && !isMyTurn && (
-            <div className="paper-overlay">
-              <h3>Drawer is picking a word...</h3>
-              <span className="pulse-dot-large"></span>
-            </div>
-          )}
-
-          {gameState === 'round_end' && (
-            <div className="paper-overlay">
-              <h2>{roundReason}</h2>
-              <p>The word was: <strong>{secretWord}</strong></p>
-              <div className="intermission-loader">Next turn starting soon...</div>
-            </div>
-          )}
-
-          {gameState === 'game_over' && (
-            <div className="paper-overlay game-over-screen">
-              <h2>🏆 MATCH FINISHED 🏆</h2>
-              <div className="leaderboard">
-                {Object.entries(scores)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([id, score], idx) => (
-                    <div key={id} className={`leaderboard-row rank-${idx + 1}`}>
-                      <span>#{idx + 1} {id === socket.id ? `${username} (You)` : (players[id]?.name || 'Player')}</span>
-                      <strong>{score} pts</strong>
-                    </div>
+            {gameState === 'selecting_word' && isMyTurn && (
+              <div className="paper-overlay">
+                <h3>Choose a word to draw:</h3>
+                <div className="word-buttons">
+                  {wordOptions.map((word) => (
+                    <button key={word} className="word-btn" onClick={() => handleSelectWord(word)}>
+                      {word}
+                    </button>
                   ))}
+                </div>
               </div>
-              {isHost && (
-                <button className="start-game-btn" onClick={handleReturnToLobby}>
-                  🔄 Back to Lobby
-                </button>
-              )}
-            </div>
-          )}
+            )}
+
+            {gameState === 'selecting_word' && !isMyTurn && (
+              <div className="paper-overlay">
+                <h3>Drawer is picking a word...</h3>
+                <span className="pulse-dot-large"></span>
+              </div>
+            )}
+
+            {gameState === 'round_end' && (
+              <div className="paper-overlay">
+                <h2>{roundReason}</h2>
+                <p>The word was: <strong>{secretWord}</strong></p>
+                <div className="intermission-loader">Next turn starting soon...</div>
+              </div>
+            )}
+
+            {gameState === 'game_over' && (
+              <div className="paper-overlay game-over-screen">
+                <h2>🏆 MATCH FINISHED 🏆</h2>
+                <div className="leaderboard">
+                  {Object.entries(scores)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([id, score], idx) => (
+                      <div key={id} className={`leaderboard-row rank-${idx + 1}`}>
+                        <span>#{idx + 1} {id === socket.id ? `${username} (You)` : (players[id]?.name || 'Player')}</span>
+                        <strong>{score} pts</strong>
+                      </div>
+                    ))}
+                </div>
+                {isHost && (
+                  <button className="start-game-btn" onClick={handleReturnToLobby}>
+                    🔄 Back to Lobby
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </main>
 
         <Chat
