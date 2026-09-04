@@ -36,23 +36,141 @@ const Chat = ({ socket, room, username, isDrawer, gameState, isOpen, onClose }) 
     setInputMsg('');
   };
 
+  // Only disable the chat if the user is actively drawing or selecting a word
+  const isInputDisabled = isDrawer && (gameState === 'drawing' || gameState === 'selecting_word');
+
   return (
     <>
-      {isOpen && <div className="chat-mobile-backdrop" onClick={onClose} style={{position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', zIndex: 99}}></div>}
-      <aside className={`chat-box-wrapper doodle-chat-wrapper ${isOpen ? 'mobile-open' : ''}`} style={isOpen ? {position: 'fixed', bottom: 0, left: 0, width: '100%', zIndex: 100, background: '#fff', borderTop: '4px solid #333', borderRadius: '15px 15px 0 0'} : {}}>
-        <div className="chat-header doodle-chat-header" style={{borderBottom: '2px dashed #ccc', padding: '10px'}}>
-          <span style={{fontFamily: 'cursive', fontWeight: 'bold'}}>📝 GUESS CHAT</span>
-          {onClose && <button className="chat-close-btn doodle-close-btn" onClick={onClose}>✕</button>}
+      <style>{`
+        /* Desktop Default */
+        .doodle-chat-container {
+          display: flex;
+          flex-direction: column;
+          width: 320px;
+          min-width: 300px;
+          flex-shrink: 0; /* Prevents the canvas from squishing the chat */
+          height: 100%;
+          background: #fffcf2;
+          border: 4px solid #2d3436;
+          border-radius: 12px;
+          box-shadow: 4px 4px 0px #2d3436;
+          overflow: hidden;
+          font-family: 'Comic Sans MS', cursive, sans-serif;
+        }
+        
+        .doodle-chat-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 15px;
+          background: #ffeaa7;
+          border-bottom: 4px solid #2d3436;
+          font-weight: bold;
+          font-size: 1.1rem;
+        }
+
+        .doodle-close-btn {
+          display: none; /* Hidden on desktop */
+          background: #ff7675;
+          border: 2px solid #2d3436;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: bold;
+          padding: 2px 8px;
+        }
+
+        .doodle-chat-messages {
+          flex: 1;
+          overflow-y: auto;
+          padding: 15px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .doodle-msg {
+          font-size: 0.95rem;
+          line-height: 1.4;
+        }
+
+        .doodle-chat-input {
+          display: flex;
+          padding: 10px;
+          border-top: 4px solid #2d3436;
+          background: #ffffff;
+        }
+
+        .doodle-chat-input input {
+          flex: 1;
+          padding: 10px;
+          border: 2px solid #2d3436;
+          border-radius: 8px;
+          font-family: inherit;
+          outline: none;
+          min-width: 0; /* Fixes input overflow */
+        }
+        
+        .doodle-chat-input input:focus {
+          border-color: #0984e3;
+        }
+
+        .doodle-chat-input button {
+          margin-left: 8px;
+          padding: 10px 16px;
+          background: #55efc4;
+          border: 2px solid #2d3436;
+          border-radius: 8px;
+          font-weight: bold;
+          cursor: pointer;
+          font-family: inherit;
+        }
+
+        .doodle-chat-input button:disabled {
+          background: #dfe6e9;
+          cursor: not-allowed;
+        }
+
+        /* Mobile Overlay Styles */
+        @media (max-width: 768px) {
+          .doodle-chat-container {
+            display: none; 
+          }
+          .doodle-chat-container.mobile-open {
+            display: flex;
+            position: fixed;
+            top: 10%;
+            left: 5%;
+            width: 90%;
+            height: 80%;
+            z-index: 1000;
+            box-shadow: 8px 8px 0px rgba(0,0,0,0.3);
+          }
+          .doodle-close-btn {
+            display: block; 
+          }
+          .chat-mobile-backdrop {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(2px);
+            z-index: 999;
+          }
+        }
+      `}</style>
+
+      {isOpen && <div className="chat-mobile-backdrop" onClick={onClose}></div>}
+      
+      <aside className={`doodle-chat-container ${isOpen ? 'mobile-open' : ''}`}>
+        <div className="doodle-chat-header">
+          <span>📝 GUESS CHAT</span>
+          <button className="doodle-close-btn" onClick={onClose}>✕</button>
         </div>
 
-        <div className="chat-messages doodle-chat-messages" style={{fontFamily: 'cursive'}}>
+        <div className="doodle-chat-messages">
           {messages.map((msg) => (
-            <div
-              key={msg.id || Math.random()}
-              className={`chat-msg doodle-msg ${msg.system ? 'system-msg' : ''}`}
-            >
+            <div key={msg.id || Math.random()} className={`doodle-msg ${msg.system ? 'system-msg' : ''}`}>
               {msg.system ? (
-                <strong style={{color: '#888'}}>{msg.text}</strong>
+                <strong style={{ color: '#636e72' }}>{msg.text}</strong>
               ) : (
                 <span><strong>{msg.username}:</strong> {msg.text}</span>
               )}
@@ -61,16 +179,15 @@ const Chat = ({ socket, room, username, isDrawer, gameState, isOpen, onClose }) 
           <div ref={chatBottomRef} />
         </div>
 
-        <form className="chat-input-form doodle-chat-input" onSubmit={handleSendMessage} style={{display: 'flex', gap: '5px', padding: '10px', borderTop: '2px dashed #ccc'}}>
+        <form className="doodle-chat-input" onSubmit={handleSendMessage}>
           <input
             type="text"
             value={inputMsg}
             onChange={(e) => setInputMsg(e.target.value)}
-            placeholder={isDrawer ? "You are drawing..." : "Type your guess here..."}
-            disabled={isDrawer || gameState !== 'drawing'}
-            style={{flex: 1, padding: '8px', border: '2px solid #333', borderRadius: '8px', fontFamily: 'cursive'}}
+            placeholder={isInputDisabled ? "You are drawing..." : "Type guess..."}
+            disabled={isInputDisabled}
           />
-          <button type="submit" disabled={isDrawer || gameState !== 'drawing' || !inputMsg.trim()} style={{padding: '8px 15px', border: '2px solid #333', background: '#ffeaa7', borderRadius: '8px', cursor: 'pointer', fontFamily: 'cursive'}}>
+          <button type="submit" disabled={isInputDisabled || !inputMsg.trim()}>
             Send
           </button>
         </form>

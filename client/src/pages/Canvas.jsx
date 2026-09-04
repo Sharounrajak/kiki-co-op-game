@@ -249,6 +249,55 @@ const Canvas = ({ socket }) => {
 
   return (
     <div className="sketchpad-app">
+      {/* UI Fix Injection for perfect desktop grid */}
+      <style>{`
+        /* Shared Workspace Layout */
+        .workspace-grid {
+          display: flex;
+          gap: 15px;
+          padding: 15px;
+          height: calc(100vh - 100px); /* Adjusts height to avoid scrolling */
+          max-width: 1400px;
+          margin: 0 auto;
+        }
+
+        .paper-sheet {
+          flex: 1; /* Pushes sidebars to the edge, takes center */
+          min-width: 0; /* Prevents center from blowing out */
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          position: relative;
+        }
+
+        @media (max-width: 768px) {
+          .workspace-grid {
+            flex-direction: column;
+            height: auto;
+          }
+          .doodle-sidebar {
+            width: 100%;
+            margin-bottom: 10px;
+          }
+          .paper-sheet {
+            width: 100%;
+          }
+          .mobile-chat-fab {
+            display: block; 
+          }
+        }
+        
+        @media (min-width: 769px) {
+          .mobile-chat-fab {
+            display: none; 
+          }
+          .doodle-sidebar {
+            width: 250px;
+            flex-shrink: 0; /* Forces sidebar to keep its exact width */
+          }
+        }
+      `}</style>
+
       <header className="sketch-header">
         <div className="header-left">
           <span className="room-badge">ROOM: {room}</span>
