@@ -37,6 +37,9 @@ const Canvas = ({ socket }) => {
 
   const isMyTurn = socket?.id === drawerId;
 
+  // Notice: The manual touch scroll lock useEffect was removed! 
+  // It is now perfectly handled by CSS `touch-action: none` on the new wrapper.
+
   useEffect(() => {
     if (!socket) return;
 
@@ -143,10 +146,11 @@ const Canvas = ({ socket }) => {
     ctx.closePath();
   };
 
+  // Upgraded to seamlessly handle Pointer Events
   const getCoordinates = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
     
-    // This perfectly calculates the scale, even if the canvas is completely stretched vertically on mobile!
+    // Pointer events have clientX/Y built-in! No more messy touch arrays.
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
 
@@ -162,6 +166,7 @@ const Canvas = ({ socket }) => {
     const { x, y } = getCoordinates(e, canvasRef.current);
     lastPos.current = { x, y };
     
+    // This locks the pointer to the canvas so drawing doesn't break if your thumb slips slightly off-screen
     try { e.target.setPointerCapture(e.pointerId); } catch (err) {}
   };
 
@@ -221,29 +226,14 @@ const Canvas = ({ socket }) => {
   return (
     <div className="sketchpad-app">
       <style>{`
-        /* Dynamic viewport limits the app exactly to the screen edges, no more cut off! */
-        .sketchpad-app {
-          display: flex;
-          flex-direction: column;
-          height: 100vh; /* Fallback */
-          height: 100dvh; /* Modern mobile fix */
-          overflow: hidden; 
-        }
-
-        .sketch-header {
-          flex-shrink: 0; /* Protects header from squishing */
-        }
-
+        /* Perfectly maps the DOM layout to the 800x500 Canvas */
         .workspace-grid {
-          flex: 1; /* Automatically takes all remaining middle space */
           display: flex;
           gap: 15px;
           padding: 15px;
-          min-height: 0; /* Prevents overflow pushing the toolbar down */
+          height: calc(100vh - 100px);
           max-width: 1400px;
           margin: 0 auto;
-          width: 100%;
-          box-sizing: border-box;
         }
 
         .paper-sheet {
@@ -253,15 +243,15 @@ const Canvas = ({ socket }) => {
           flex-direction: column;
           align-items: center;
           position: relative;
-          height: 100%;
         }
 
         .canvas-wrapper {
           width: 100%;
-          height: 100%;
+          max-width: 800px;
+          aspect-ratio: 8 / 5; /* This fixes the offset bug perfectly */
           position: relative;
           background: transparent;
-          touch-action: none;
+          touch-action: none; /* Stops the browser from scrolling while drawing */
         }
 
         .responsive-canvas {
@@ -271,29 +261,19 @@ const Canvas = ({ socket }) => {
           touch-action: none; 
           cursor: crosshair;
         }
-        
-        .doodle-toolbar {
-          flex-shrink: 0; /* Protects toolbar from getting squished or pushed out */
-          margin-bottom: env(safe-area-inset-bottom, 5px); /* Respects iPhone home bars */
-          overflow-x: auto; /* Allows scrolling if tools don't fit horizontally */
-          white-space: nowrap;
-          z-index: 10;
-        }
 
         @media (max-width: 768px) {
           .workspace-grid {
             flex-direction: column;
-            padding: 5px;
-            gap: 5px;
+            height: auto;
+            padding: 10px;
           }
           .doodle-sidebar {
             width: 100%;
-            margin-bottom: 5px;
-            flex-shrink: 0;
+            margin-bottom: 10px;
           }
           .paper-sheet {
             width: 100%;
-            min-height: 0;
           }
           .mobile-chat-fab {
             display: block; 
@@ -307,10 +287,6 @@ const Canvas = ({ socket }) => {
           .doodle-sidebar {
             width: 250px;
             flex-shrink: 0; 
-          }
-          .canvas-wrapper {
-            aspect-ratio: 8 / 5; /* Keeps desktop nicely locked */
-            height: auto;
           }
         }
       `}</style>
@@ -354,6 +330,7 @@ const Canvas = ({ socket }) => {
         </aside>
 
         <main className="paper-sheet">
+          {/* Replaced naked canvas with strict-ratio wrapper */}
           <div className="canvas-wrapper">
             <canvas
               ref={canvasRef}
@@ -367,6 +344,7 @@ const Canvas = ({ socket }) => {
               onPointerOut={stopDrawing}
             />
 
+            {/* Placed overlays inside the wrapper so they perfectly cover the canvas area */}
             {gameState === 'lobby' && (
               <Configuration
                 room={room}
