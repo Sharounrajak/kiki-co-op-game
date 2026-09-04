@@ -37,7 +37,6 @@ const Canvas = ({ socket }) => {
 
   const isMyTurn = socket?.id === drawerId;
 
-  // LOGIC FIX: Forcefully stop mobile devices from scrolling while interacting with the canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -165,17 +164,19 @@ const Canvas = ({ socket }) => {
 
   const getCoordinates = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
+    const nativeEvent = e.nativeEvent || e;
     
     let clientX, clientY;
-    if (e.touches && e.touches.length > 0) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else if (e.changedTouches && e.changedTouches.length > 0) {
-      clientX = e.changedTouches[0].clientX;
-      clientY = e.changedTouches[0].clientY;
+    
+    if (nativeEvent.touches && nativeEvent.touches.length > 0) {
+      clientX = nativeEvent.touches[0].clientX;
+      clientY = nativeEvent.touches[0].clientY;
+    } else if (nativeEvent.changedTouches && nativeEvent.changedTouches.length > 0) {
+      clientX = nativeEvent.changedTouches[0].clientX;
+      clientY = nativeEvent.changedTouches[0].clientY;
     } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
+      clientX = nativeEvent.clientX || e.clientX;
+      clientY = nativeEvent.clientY || e.clientY;
     }
 
     const scaleX = canvas.width / rect.width;
