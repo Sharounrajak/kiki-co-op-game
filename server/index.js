@@ -20,29 +20,17 @@ const io = new Server(server, {
   }
 });
 
-// VAST WORD BANK (Categorized & Varied)
 const WORD_BANK = [
-  // Animals
   "Elephant", "Giraffe", "Penguin", "Kangaroo", "Octopus", "Flamingo", "Chimpanzee", 
   "Dolphin", "Crocodile", "Cheetah", "Peacock", "Hedgehog", "Chameleon", "Squirrel",
-  
-  // Food & Drink
   "Pizza", "Hamburger", "Sushi", "Ice Cream", "Taco", "Pancake", "Spaghetti", 
   "Watermelon", "Donut", "Pineapple", "Croissant", "Avocado", "Popcorn", "Cupcake",
-
-  // Objects & Household
   "Guitar", "Telescope", "Umbrella", "Headphones", "Backpack", "Sunglasses", "Flashlight",
   "Hourglass", "Typewriter", "Microwave", "Submarine", "Skateboard", "Helicopter", "Compass",
-
-  // Nature & Places
   "Volcano", "Waterfall", "Pyramid", "Lighthouse", "Castle", "Rainforest", "Glacier",
   "Island", "Desert", "Space Station", "Windmill", "Graveyard", "Cave", "Bridge",
-
-  // Pop Culture & Fantasy
   "Dragon", "Unicorn", "Superhero", "Wizard", "Zombie", "Robot", "Alien", 
   "Pirate", "Vampire", "Ninja", "Ghost", "Monster", "Mermaid", "Mummy",
-
-  // Actions & Concepts
   "Dancing", "Fishing", "Skydiving", "Camping", "Cooking", "Juggling", "Climbing",
   "Painting", "Sleeping", "Surfing", "Bowling", "Boxing", "Gardening", "Singing"
 ];
@@ -55,12 +43,10 @@ const getRandomWords = (count = 3) => {
   return shuffled.slice(0, count);
 };
 
-// Mask word helper (e.g. "Pizza" -> "_ _ _ _ _")
 const generateInitialMask = (word) => {
   return word.split('').map(char => (char === ' ' ? ' ' : '_')).join(' ');
 };
 
-// Progressively reveal unrevealed letters for hints
 const revealHintLetter = (word, currentMasked) => {
   const maskArray = currentMasked.split(' ');
   const unrevealedIndices = [];
@@ -71,10 +57,8 @@ const revealHintLetter = (word, currentMasked) => {
     }
   }
 
-  // If no letters left to reveal, return current mask
   if (unrevealedIndices.length === 0) return currentMasked;
 
-  // Select random index to reveal
   const randomIndex = unrevealedIndices[Math.floor(Math.random() * unrevealedIndices.length)];
   maskArray[randomIndex] = word[randomIndex];
 
@@ -105,6 +89,7 @@ const startNextTurn = (roomCode) => {
   room.currentDrawer = currentDrawerId;
   room.gameState = 'selecting_word';
   room.wordOptions = getRandomWords(3);
+  room.guessedPlayers = [];
 
   io.in(roomCode).emit('turn_setup', {
     drawerId: currentDrawerId,
@@ -123,11 +108,9 @@ const startTurnTimer = (roomCode) => {
   const timeLimit = room.settings.timeLimit || 60;
   room.timer = timeLimit;
 
-  // Initialize Mask and Hint Tracking
   room.maskedWord = generateInitialMask(room.secretWord);
   room.hintsGiven = 0;
 
-  // Calculate dynamic hint intervals based on total time (e.g., 60s -> 15s interval, 90s -> 20s, 120s -> 25s)
   const hintInterval = Math.floor(timeLimit / 4);
 
   io.in(roomCode).emit('round_start', {
@@ -141,12 +124,11 @@ const startTurnTimer = (roomCode) => {
 
     const timeElapsed = timeLimit - room.timer;
 
-    // Trigger hints up to 3 times spaced across the round
     if (
       room.hintsGiven < 3 &&
       timeElapsed > 0 &&
       timeElapsed % hintInterval === 0 &&
-      room.timer > 5 // Don't give hint in final 5 seconds
+      room.timer > 5
     ) {
       room.maskedWord = revealHintLetter(room.secretWord, room.maskedWord);
       room.hintsGiven += 1;
@@ -244,6 +226,7 @@ io.on('connection', (socket) => {
         wordOptions: [],
         currentRound: 1,
         scores: {},
+        guessedPlayers: [],
         timer: 60,
         interval: null
       };
@@ -258,6 +241,52 @@ io.on('connection', (socket) => {
     }
 
     io.in(room).emit("room_data", { roomState: rooms[room], hostId: rooms[room].host });
+  });
+
+  // CHAT & GUESS SYSTEM FIX
+  socket.on("send_message", ({ room, message, username }) => {
+    const roomState = rooms[room];
+
+    if (roomState && roomState.gameState === 'drawing') {
+      const isDrawer = socket.id === roomState.currentDrawer;
+      const isCorrectGuess = !isDrawer && 
+        message.trim().toLowerCase() === roomState.secretWord.toLowerCase() &&
+        !roomState.guessedPlayers.includes(socket.id);
+
+      if (isCorrectGuess) {
+        roomState.guessedPlayers.push(socket.id);
+        
+        // Dynamic Scoring based on remaining time
+        const points = Math.max(50, roomState.timer * 10);
+        roomState.scores[socket.id] = (roomState.scores[socket.id] || 0) + points;
+        
+        // Award drawer partial points
+        if (roomState.currentDrawer) {
+          roomState.scores[roomState.currentDrawer] = (roomState.scores[roomState.currentDrawer] || 0) + 25;
+        }
+
+        io.in(room).emit("receive_message", {
+          system: true,
+          text: `🎉 ${username || 'A player'} guessed the word!`
+        });
+
+        io.in(room).emit("room_data", { roomState, hostId: roomState.host });
+
+        // Check if all non-drawers guessed
+        const totalGuessers = roomState.playerQueue.length - 1;
+        if (roomState.guessedPlayers.length >= Math.max(1, totalGuessers)) {
+          endTurn(room, "Everyone guessed the word!");
+        }
+        return;
+      }
+    }
+
+    // Regular Chat Broadcast
+    io.in(room).emit("receive_message", {
+      username: username || 'Player',
+      text: message,
+      system: false
+    });
   });
 
   socket.on("update_settings", ({ room, settings }) => {

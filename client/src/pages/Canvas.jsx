@@ -27,7 +27,7 @@ const Canvas = ({ socket }) => {
   const [totalRounds, setTotalRounds] = useState(3);
   const [scores, setScores] = useState({});
   const [players, setPlayers] = useState({});
-  const [settings, setSettings] = useState({ timeLimit: 60, hints: 2, totalRounds: 3 });
+  const [settings, setSettings] = useState({ timeLimit: 60, hints: 3, totalRounds: 3 });
   const [isMobileChatOpen, setIsMobileChatOpen] = useState(false);
   const [copiedHeader, setCopiedHeader] = useState(false);
 
@@ -76,14 +76,19 @@ const Canvas = ({ socket }) => {
       clearLocalCanvas();
     });
 
-   socket.on("timer_tick", (data) => {
-  if (typeof data === 'object') {
-    setTimer(data.time);
-    if (data.maskedWord) setMaskedWord(data.maskedWord);
-  } else {
-    setTimer(data);
-  }
-});
+    socket.on("timer_tick", (data) => {
+      if (typeof data === 'object') {
+        setTimer(data.time);
+        if (data.maskedWord) setMaskedWord(data.maskedWord);
+      } else {
+        setTimer(data);
+      }
+    });
+
+    socket.on("receive_draw", (data) => {
+      drawLine(data.x0, data.y0, data.x1, data.y1, data.color, data.size, data.tool);
+    });
+
     socket.on("receive_clear", () => clearLocalCanvas());
 
     socket.on("round_over", ({ reason, secretWord, scores, currentRound, totalRounds }) => {
@@ -138,19 +143,34 @@ const Canvas = ({ socket }) => {
     ctx.closePath();
   };
 
+  // TOUCH ACCURACY & MOBILE DRAW FIX
   const getCoordinates = (e, canvas) => {
     const rect = canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     
+    let clientX, clientY;
+    if (e.touches && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else if (e.changedTouches && e.changedTouches.length > 0) {
+      clientX = e.changedTouches[0].clientX;
+      clientY = e.changedTouches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
     return {
-      x: (clientX - rect.left) * (canvas.width / rect.width),
-      y: (clientY - rect.top) * (canvas.height / rect.height)
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
     };
   };
 
   const startDrawing = (e) => {
     if (!isMyTurn || gameState !== 'drawing') return;
+    if (e.cancelable) e.preventDefault();
     isDrawing.current = true;
     const { x, y } = getCoordinates(e, canvasRef.current);
     lastPos.current = { x, y };
@@ -158,6 +178,8 @@ const Canvas = ({ socket }) => {
 
   const draw = (e) => {
     if (!isDrawing.current || !isMyTurn || gameState !== 'drawing') return;
+    if (e.cancelable) e.preventDefault();
+
     const { x, y } = getCoordinates(e, canvasRef.current);
     const { x: x0, y: y0 } = lastPos.current;
 
@@ -166,7 +188,10 @@ const Canvas = ({ socket }) => {
     lastPos.current = { x, y };
   };
 
-  const stopDrawing = () => { isDrawing.current = false; };
+  const stopDrawing = (e) => {
+    if (e && e.cancelable) e.preventDefault();
+    isDrawing.current = false;
+  };
 
   const clearLocalCanvas = () => {
     const canvas = canvasRef.current;
@@ -259,6 +284,7 @@ const Canvas = ({ socket }) => {
             onTouchStart={startDrawing}
             onTouchMove={draw}
             onTouchEnd={stopDrawing}
+            onTouchCancel={stopDrawing}
           />
 
           {gameState === 'lobby' && (
